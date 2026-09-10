@@ -6,7 +6,17 @@
  * keeps the 3-click golf meter identical on a keyboard and under a thumb.
  */
 
-export type InputAction = 'confirm' | 'cancel' | 'up' | 'down' | 'left' | 'right' | 'mute';
+export type InputAction =
+  /** Edge-triggered the instant a control goes down - the meter needs this. */
+  | 'confirm'
+  /** A completed tap or key press. Menus use this so a swipe isn't a choice. */
+  | 'select'
+  | 'cancel'
+  | 'up'
+  | 'down'
+  | 'left'
+  | 'right'
+  | 'mute';
 
 export interface InputState {
   /** -1..1 held horizontal nudge. */
@@ -48,7 +58,9 @@ export function createInput(target: HTMLElement): InputState {
   let pointer: { x: number; y: number } | null = null;
   let pointerHeld = false;
   let dragOriginX = 0;
+  let dragOriginY = 0;
   let dragX = 0;
+  let downAt = 0;
 
   const press = (action: InputAction): void => {
     if (!held.has(action)) edges.add(action);
@@ -65,6 +77,7 @@ export function createInput(target: HTMLElement): InputState {
       return;
     }
     press(action);
+    if (action === 'confirm') edges.add('select');
   };
 
   const onKeyUp = (e: KeyboardEvent): void => {
@@ -90,7 +103,9 @@ export function createInput(target: HTMLElement): InputState {
     pointer = localPoint(e);
     pointerHeld = true;
     dragOriginX = pointer.x;
+    dragOriginY = pointer.y;
     dragX = 0;
+    downAt = e.timeStamp;
     press('confirm');
   };
 
@@ -99,8 +114,26 @@ export function createInput(target: HTMLElement): InputState {
     if (pointerHeld) dragX = pointer.x - dragOriginX;
   };
 
+  /** A flick is worth a d-pad press; anything shorter is a tap. */
+  const SWIPE = 0.06; // fraction of the canvas
+  const SWIPE_MS = 600;
+
   const onPointerUp = (e: PointerEvent): void => {
     target.releasePointerCapture?.(e.pointerId);
+    const end = localPoint(e);
+    const dx = end.x - dragOriginX;
+    const dy = end.y - dragOriginY;
+    const quick = e.timeStamp - downAt < SWIPE_MS;
+
+    if (quick && Math.abs(dy) > SWIPE && Math.abs(dy) > Math.abs(dx)) {
+      edges.add(dy < 0 ? 'up' : 'down');
+    } else if (quick && dx < -SWIPE && Math.abs(dx) > Math.abs(dy)) {
+      edges.add('cancel');
+    } else if (Math.abs(dx) < SWIPE && Math.abs(dy) < SWIPE) {
+      // A tap in place: the menus' commit, kept off the swipe gestures.
+      edges.add('select');
+    }
+
     pointerHeld = false;
     dragX = 0;
     held.delete('confirm');

@@ -193,7 +193,12 @@ export function createRenderer(container: HTMLElement): Renderer {
   const resize = (): void => {
     const width = container.clientWidth || window.innerWidth || NATIVE_W;
     const height = container.clientHeight || window.innerHeight || NATIVE_H;
-    const scale = Math.max(1, Math.floor(Math.min(width / NATIVE_W, height / NATIVE_H)));
+    // Integer scaling keeps every NES pixel square, but on a phone the next
+    // integer down throws away most of the screen - a 393px-wide handset would
+    // play at 1x. Below 2x, fit the viewport instead and let the browser
+    // nearest-neighbour the remainder.
+    const fit = Math.min(width / NATIVE_W, height / NATIVE_H);
+    const scale = fit >= 2 ? Math.floor(fit) : Math.max(1, fit);
     canvas.style.width = `${NATIVE_W * scale}px`;
     canvas.style.height = `${NATIVE_H * scale}px`;
     // The letterbox is whatever `container` shows around the scaled canvas;

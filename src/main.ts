@@ -98,8 +98,9 @@ function boot(): void {
 
   function startLocalMatch(mode: 'solo' | 'hotseat'): void {
     const opponent = mode === 'solo' ? `CPU ${settings.difficulty.toUpperCase()}` : 'PLAYER 2';
+    const you = settings.name === DEFAULT_NAME && mode === 'hotseat' ? 'PLAYER 1' : settings.name;
     const seats: SessionSeats = {
-      names: [settings.name, opponent],
+      names: [you, opponent],
       local: mode === 'solo' ? [1] : [1, 2],
       connected: [true, true],
     };
@@ -218,7 +219,7 @@ function boot(): void {
   // -- per-screen update ----------------------------------------------------
 
   function updateTitle(): void {
-    if (input.pressed('confirm')) {
+    if (input.pressed('select')) {
       void audio.unlock();
       audio.music('title');
       select();
@@ -298,14 +299,14 @@ function boot(): void {
       leaveMatch();
       return;
     }
-    if (input.pressed('confirm')) void copyChallengeLink();
+    if (input.pressed('select')) void copyChallengeLink();
   }
 
   function updatePlaying(dt: number): void {
     if (!session) return;
     session.update(dt, input);
 
-    if (session.phase === 'over' && input.pressed('confirm')) {
+    if (session.phase === 'over' && input.pressed('select')) {
       select();
       if (connection) {
         connection.requestRematch();

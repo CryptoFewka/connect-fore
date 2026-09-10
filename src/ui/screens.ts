@@ -51,7 +51,7 @@ export function createMenu<T extends string>(items: readonly MenuItem<T>[]): Men
         onMove();
       }
       if (input.pressed('cancel')) return '@back';
-      if (input.pressed('confirm')) {
+      if (input.pressed('select')) {
         const item = items[index];
         if (item && !item.disabled) return item.id;
       }
@@ -108,7 +108,7 @@ export function createCodePicker(): CodePicker {
         onMove();
       }
       if (input.pressed('cancel')) return '@back';
-      if (input.pressed('confirm')) {
+      if (input.pressed('select')) {
         if (slot < ROOM_CODE_LENGTH - 1) {
           slot += 1;
           onMove();
