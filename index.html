@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0b0f1a" />
+    <meta name="description" content="Connect Fore! - NES-style 3D golf meets Connect Four. Aim, pick your power, and thread the ball through a gap in the board." />
+    <title>Connect Fore!</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f1a;
+        color: #e8f0ff;
+        font-family: ui-monospace, "Courier New", monospace;
+        overflow: hidden;
+        overscroll-behavior: none;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        touch-action: none;
+      }
+      #app canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+      #fallback {
+        max-width: 40ch;
+        padding: 1.5rem;
+        text-align: center;
+        line-height: 1.6;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * { animation-duration: 0.001ms !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <noscript>
+        <div id="fallback">Connect Fore! needs JavaScript and WebGL to run.</div>
+      </noscript>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
