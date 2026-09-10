@@ -16,7 +16,7 @@ import { createSession } from './ui/session';
 import type { Session, SessionSeats } from './ui/session';
 import { createCodePicker, createMenu, roomFromHash } from './ui/screens';
 import type { CodePicker } from './ui/screens';
-import { loadSettings, saveSettings } from './ui/settings';
+import { DEFAULT_NAME, loadSettings, saveSettings } from './ui/settings';
 import type { Settings } from './ui/settings';
 import { newMatch } from './game/match';
 import type { Difficulty, MatchState, Player } from './game/types';
@@ -115,8 +115,12 @@ function boot(): void {
   }
 
   function seatsFrom(players: readonly PlayerInfo[], seat: Player | null): SessionSeats {
-    const nameFor = (n: Player): string =>
-      players.find((p) => p.seat === n)?.name ?? (n === 1 ? 'PLAYER 1' : 'WAITING...');
+    const nameFor = (n: Player): string => {
+      const found = players.find((p) => p.seat === n)?.name;
+      if (!found) return n === 1 ? 'PLAYER 1' : 'WAITING...';
+      // Two strangers who both kept the default handle need telling apart.
+      return found === DEFAULT_NAME ? `${DEFAULT_NAME} ${n}` : found;
+    };
     const connectedFor = (n: Player): boolean =>
       players.find((p) => p.seat === n)?.connected ?? false;
     return {
@@ -404,6 +408,22 @@ function boot(): void {
   }
 
   // -- loop -----------------------------------------------------------------
+
+  // A small window onto the running game: used by the automated play-through
+  // harness, and handy for poking at a live match from the browser console.
+  (window as unknown as { connectFore: () => unknown }).connectFore = () => ({
+    screen,
+    phase: session?.phase ?? null,
+    turn: session?.state.turn ?? null,
+    current: session?.state.current ?? null,
+    status: session?.state.status ?? null,
+    discs: session?.state.board.filter((cell) => cell !== 0).length ?? 0,
+    lastOutcome: session?.state.lastShot?.outcome ?? null,
+    winner: session?.state.winner ?? null,
+    connection: connectionStatus,
+    room: roomCode,
+    seat: localSeat,
+  });
 
   let last = performance.now();
   let paused = false;

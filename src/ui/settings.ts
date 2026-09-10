@@ -5,6 +5,9 @@
 
 const KEY = 'connect-fore:settings:v1';
 
+/** Shown until a player picks a handle of their own. */
+export const DEFAULT_NAME = 'PLAYER';
+
 export interface Settings {
   name: string;
   difficulty: 'easy' | 'normal' | 'hard';
@@ -13,7 +16,7 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  name: 'PLAYER',
+  name: DEFAULT_NAME,
   difficulty: 'normal',
   lastRoom: null,
 };

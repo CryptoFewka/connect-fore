@@ -18,11 +18,20 @@ export type MeterPhase = 'aim' | 'power' | 'accuracy' | 'locked';
 /** How far either side of the sweet spot the accuracy cursor can travel. */
 export const ACCURACY_RANGE = 0.35;
 
-const AIM_YAW_RATE = 0.42; // radians per second at full deflection
-const AIM_LOFT_RATE = 0.5;
-const POWER_SPEED = 1.15; // meter fractions per second
-const ACCURACY_SPEED = 1.75;
+/**
+ * Aim rate ramps: threading an aperture needs roughly a degree of yaw, so a
+ * tap has to be finer than one aperture width, while a long hold still has to
+ * cross the whole board in a sensible time.
+ */
+const AIM_YAW_RATE = 0.11; // radians per second from a standing start
+const AIM_YAW_RATE_MAX = 0.5;
+const AIM_RAMP_TIME = 0.7; // seconds of continuous hold to reach full rate
+const AIM_LOFT_RATE = 0.32;
+const POWER_SPEED = 0.62; // meter fractions per second
+const ACCURACY_SPEED = 1.1;
 const MIN_POWER = 0.08;
+/** A flat default: the power windows are widest down here. */
+export const DEFAULT_LOFT = 0.3;
 
 export interface MeterOptions {
   yaw?: number;
@@ -46,10 +55,11 @@ export interface Meter {
 export function createMeter(options: MeterOptions = {}): Meter {
   let phase: MeterPhase = 'aim';
   let yaw = options.yaw ?? 0;
-  let loft = options.loft ?? 0.42;
+  let loft = options.loft ?? DEFAULT_LOFT;
   let cursor = 0;
   let power = 0;
   let accuracy = 0;
+  let aimHeld = 0;
 
   const clamp = (v: number, lo: number, hi: number): number => (v < lo ? lo : v > hi ? hi : v);
 
@@ -69,7 +79,11 @@ export function createMeter(options: MeterOptions = {}): Meter {
 
     update(dt: number, axisX: number, axisY: number): void {
       if (phase === 'aim') {
-        yaw = clamp(yaw + axisX * AIM_YAW_RATE * dt, -COURSE.maxYaw, COURSE.maxYaw);
+        const nudging = axisX !== 0 || axisY !== 0;
+        aimHeld = nudging ? aimHeld + dt : 0;
+        const ramp = Math.min(1, aimHeld / AIM_RAMP_TIME);
+        const yawRate = AIM_YAW_RATE + (AIM_YAW_RATE_MAX - AIM_YAW_RATE) * ramp * ramp;
+        yaw = clamp(yaw + axisX * yawRate * dt, -COURSE.maxYaw, COURSE.maxYaw);
         loft = clamp(loft + axisY * AIM_LOFT_RATE * dt, COURSE.minLoft, COURSE.maxLoft);
         return;
       }
@@ -131,10 +145,11 @@ export function createMeter(options: MeterOptions = {}): Meter {
     reset(next: MeterOptions = {}): void {
       phase = 'aim';
       yaw = next.yaw ?? 0;
-      loft = next.loft ?? 0.42;
+      loft = next.loft ?? DEFAULT_LOFT;
       cursor = 0;
       power = 0;
       accuracy = 0;
+      aimHeld = 0;
     },
   };
 }

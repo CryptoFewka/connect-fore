@@ -121,7 +121,7 @@ export function createSession(options: SessionOptions): Session {
     message = null;
     lastDetent = -1;
     aiPlan = null;
-    meter.reset({ yaw: 0, loft: 0.42 });
+    meter.reset();
     ball.x = COURSE.tee.x;
     ball.y = COURSE.tee.y;
     ball.z = COURSE.tee.z;
@@ -195,7 +195,9 @@ export function createSession(options: SessionOptions): Session {
       const winnerIndex = next.winner - 1;
       score = winnerIndex === 0 ? [score[0] + 1, score[1]] : [score[0], score[1] + 1];
       message = `${seats.names[winnerIndex]} WINS!`;
-      audio.sfx(isLocal(next.winner) && seats.local.length === 1 ? 'win' : 'win');
+      // Playing one side of the match: it matters which way it went.
+      const lost = seats.local.length === 1 && !isLocal(next.winner);
+      audio.sfx(lost ? 'lose' : 'win');
       audio.music('victory');
     } else if (next.status === 'draw') {
       message = 'BOARD FULL - DRAW';
