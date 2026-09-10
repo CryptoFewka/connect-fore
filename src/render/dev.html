@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Connect Fore! - renderer scratch page</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #0b0f1a;
+        color: #e8f0ff;
+        font-family: ui-monospace, "Courier New", monospace;
+        overflow: hidden;
+      }
+      body { display: flex; flex-direction: column; }
+      #app {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: grid;
+        place-items: center;
+      }
+      #app canvas { image-rendering: pixelated; }
+      #controls {
+        flex: 0 0 auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px;
+        background: #11172a;
+      }
+      #controls button {
+        font: inherit;
+        font-size: 11px;
+        padding: 3px 8px;
+        color: #e8f0ff;
+        background: #26304d;
+        border: 1px solid #4c9aec;
+        cursor: pointer;
+      }
+      #controls button:hover { background: #35426b; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="controls"></div>
+    <script type="module" src="/src/render/dev.ts"></script>
+  </body>
+</html>
