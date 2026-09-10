@@ -42,11 +42,11 @@ export const COURSE = {
 
   gravity: -9.8,
   /** Quadratic-ish air drag coefficient applied per axis. */
-  drag: 0.08,
+  drag: 0.006,
   /** Lateral acceleration per unit of accuracy error (the hook/slice curve). */
   spinAccel: 3.6,
 
-  ballRadius: 0.16,
+  ballRadius: 0.13,
   /** Ball rests here at address. The board sits at z = 0, facing -z. */
   tee: { x: 0, y: 0.16, z: 14 },
 
@@ -72,7 +72,7 @@ export const COURSE = {
   restSpeed: 0.35,
 
   /** Launch speed at power = 1. */
-  maxLaunchSpeed: 21.5,
+  maxLaunchSpeed: 26,
   minLoft: 0.02,
   maxLoft: 0.95,
   maxYaw: 0.55,
