@@ -105,7 +105,12 @@ export function createSession(options: SessionOptions): Session {
   let shake = 0;
   let aiPlan: ShotParams | null = null;
 
-  const ball = { x: COURSE.tee.x, y: COURSE.tee.y, z: COURSE.tee.z, visible: true };
+  const ball: { x: number; y: number; z: number; visible: boolean } = {
+    x: COURSE.tee.x,
+    y: COURSE.tee.y,
+    z: COURSE.tee.z,
+    visible: true,
+  };
 
   const isLocal = (seat: Player): boolean => seats.local.includes(seat);
   const isAi = (seat: Player): boolean => options.ai?.seat === seat;
