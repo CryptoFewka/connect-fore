@@ -9,7 +9,7 @@
 import type { HudPlayerView, HudState, MeterView } from './api';
 import type { Player } from '../game/types';
 import type { BitmapFont } from './font';
-import { CARET_UP, CURSOR, createFont } from './font';
+import { CURSOR, createFont } from './font';
 import { INK, playerInk } from './palette';
 
 export const HUD_W = 256;
@@ -36,9 +36,9 @@ const METER_Y = 200;
 const METER_H = 11;
 /** The meter's enclosure: labels live inside it so they never sit on the turf. */
 const METER_BOX_X = METER_X - 6;
-const METER_BOX_Y = METER_Y - 16;
+const METER_BOX_Y = METER_Y - 18;
 const METER_BOX_W = METER_W + 12;
-const METER_BOX_H = METER_H + 27;
+const METER_BOX_H = METER_H + 30;
 
 /** Power zones, drawn left to right. Module scope: the hot path allocates nothing. */
 const METER_ZONES: readonly (readonly [number, number, string])[] = [
@@ -129,6 +129,16 @@ export function createHud(): HudLayer {
     }
   };
 
+  /** A 7x4 solid triangle, apex up or down. Reads at a glance; a single-pixel
+   * tick does not. */
+  const marker = (x: number, y: number, ink: string, up: boolean): void => {
+    ctx.fillStyle = ink;
+    for (let row = 0; row < 4; row += 1) {
+      const width = up ? row * 2 + 1 : 7 - row * 2;
+      ctx.fillRect(x - (width - 1) / 2, y + row, width, 1);
+    }
+  };
+
   const meter = (view: MeterView, time: number): void => {
     const power = Math.min(1, Math.max(0, view.power));
     const cursor = Math.min(1, Math.max(0, view.cursor));
@@ -151,21 +161,23 @@ export function createHud(): HudLayer {
       }
     }
 
-    // Sweet spot: the notch dead centre.
+    // Sweet spot: a pointer above the bar and a pale gate through it.
     const centre = METER_X + Math.round(METER_W / 2);
-    ctx.fillStyle = INK.white;
-    ctx.fillRect(centre, METER_Y - 4, 1, 3);
-    ctx.fillRect(centre, METER_Y + METER_H + 1, 1, 3);
+    marker(centre, METER_Y - 7, INK.white, false);
     ctx.fillStyle = INK.cream;
-    ctx.fillRect(centre - 1, METER_Y, 1, METER_H);
-    ctx.fillRect(centre + 1, METER_Y, 1, METER_H);
+    ctx.fillRect(centre - 2, METER_Y, 1, METER_H);
+    ctx.fillRect(centre + 2, METER_Y, 1, METER_H);
+    ctx.fillStyle = INK.white;
+    ctx.fillRect(centre, METER_Y, 1, METER_H);
 
     // Accuracy marker: how far off the sweet spot the strike landed.
     if (showAccuracy) {
       const offset = Math.min(1, Math.max(-1, view.accuracy));
-      const x = METER_X + Math.round((0.5 + offset * 0.5) * METER_W);
+      const x = METER_X + Math.round((0.5 + offset * 0.5) * (METER_W - 2));
       const ink = Math.abs(offset) < 0.12 ? INK.green : Math.abs(offset) < 0.4 ? INK.gold : INK.red;
-      font.draw(ctx, CARET_UP, x - 2, METER_Y + METER_H + 3, ink);
+      marker(x, METER_Y + METER_H + 3, ink, true);
+      ctx.fillStyle = ink;
+      ctx.fillRect(x, METER_Y + METER_H + 1, 1, 2);
     }
 
     // Sweeping cursor, drawn last so it is never hidden by the fill.

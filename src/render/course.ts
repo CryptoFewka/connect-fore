@@ -44,11 +44,13 @@ function skyTexture(): THREE.CanvasTexture {
       ctx.fillStyle = `#${(bands[i] ?? 0).toString(16).padStart(6, '0')}`;
       ctx.fillRect(0, Math.floor((i * 64) / bands.length), 64, Math.ceil(64 / bands.length) + 1);
     }
+    // Clouds sit well below the zenith: near the pole the sphere's UVs pinch
+    // and any sprite up there smears into a band.
     ctx.fillStyle = `#${SCENE.cloud.toString(16).padStart(6, '0')}`;
     const puffs: readonly (readonly [number, number, number])[] = [
-      [6, 12, 5], [11, 13, 7], [17, 12, 4],
-      [38, 20, 6], [44, 21, 8], [51, 20, 5],
-      [24, 32, 5], [29, 33, 6],
+      [5, 26, 4], [9, 27, 6], [14, 26, 3],
+      [34, 31, 5], [39, 32, 6], [45, 31, 4],
+      [22, 38, 4], [26, 39, 5],
     ];
     for (const puff of puffs) {
       ctx.fillRect(puff[0], puff[1], puff[2], 2);
@@ -76,7 +78,7 @@ export function createCourse3D(): Course3D {
   // --- sky -----------------------------------------------------------------
   const sky = skyTexture();
   // Tiled around the dome: one wrap would make each cloud a mile wide.
-  sky.repeat.set(4, 1);
+  sky.repeat.set(6, 1);
   sky.wrapT = THREE.ClampToEdgeWrapping;
   textures.push(sky);
   const skyMesh = new THREE.Mesh(

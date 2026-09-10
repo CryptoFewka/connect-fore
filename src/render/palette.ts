@@ -260,7 +260,7 @@ export function createToonMaterial(options: ToonOptions = {}): THREE.ShaderMater
       uOpacity: { value: opacity },
       uLight: { value: SUN.clone() },
       uFogColor: { value: rgbOf(SCENE.fog, new THREE.Vector3()) },
-      uFogRange: { value: new THREE.Vector2(34, 150) },
+      uFogRange: { value: new THREE.Vector2(55, 190) },
       uFogAmount: { value: options.fogAmount ?? 1 },
     },
     transparent: opacity < 1,
@@ -268,10 +268,4 @@ export function createToonMaterial(options: ToonOptions = {}): THREE.ShaderMater
   });
   if (options.depthWrite === false) material.depthWrite = false;
   return material;
-}
-
-/** Recolour a toon material in place; used for the win-line flash. */
-export function setToonColor(material: THREE.ShaderMaterial, hex: number): void {
-  const uniform = material.uniforms.uColor;
-  if (uniform) rgbOf(hex, uniform.value as THREE.Vector3);
 }

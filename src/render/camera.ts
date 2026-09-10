@@ -70,9 +70,15 @@ export function createCameraRig(aspect: number): CameraRig {
         const sin = Math.sin(yaw);
         const cos = Math.cos(yaw);
         // Over the right shoulder, swung round with the aim.
-        scratch.set(0.6, 0, 3.4);
-        shot.position.set(ball.x + scratch.x * cos - scratch.z * sin, ball.y + 1.5, ball.z + scratch.x * sin + scratch.z * cos);
-        shot.target.set(ball.x + sin * 14, 3.1, ball.z - cos * 14);
+        scratch.set(0.55, 0, 5.6);
+        shot.position.set(
+          ball.x + scratch.x * cos - scratch.z * sin,
+          ball.y + 1.6,
+          ball.z + scratch.x * sin + scratch.z * cos,
+        );
+        // Tilted down so the ball and its aim guide clear the meter, and leaning
+        // only half the aim offset so the board never swings off the screen.
+        shot.target.set(ball.x + sin * 7, 1.1, ball.z - cos * 7);
         break;
       }
       case 'follow': {
