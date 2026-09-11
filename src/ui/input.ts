@@ -18,6 +18,8 @@ export type InputAction =
   | 'right'
   | 'mute';
 
+export type DragMode = 'gesture' | 'aim' | 'lock';
+
 export interface InputState {
   /** -1..1 held horizontal nudge. */
   readonly axisX: number;
@@ -35,11 +37,17 @@ export interface InputState {
   /** True once the player has touched the screen rather than clicked it. */
   readonly isTouch: boolean;
   /**
-   * While aiming, a drag steers the shot, so the flick gestures that drive the
-   * menus have to stand down - otherwise swinging the aim left would quit the
-   * match.
+   * What a pointer gesture means right now.
+   *
+   * - `gesture` (menus, result screen): flicks move the cursor and go back, a
+   *   tap in place commits.
+   * - `aim`: a drag steers the shot, so flicks must stand down or swinging the
+   *   aim left would quit the match. A tap in place commits; a press held in
+   *   place is the way out, since no flick is safe here.
+   * - `lock` (power, accuracy, and while a shot plays out): the press itself
+   *   already did the work, so releasing must do nothing at all.
    */
-  setDragMode(mode: 'gesture' | 'aim'): void;
+  setDragMode(mode: DragMode): void;
   /** Call once per frame, after the game has read the state. */
   endFrame(): void;
   dispose(): void;
@@ -76,7 +84,9 @@ export function createInput(target: HTMLElement): InputState {
   let deltaY = 0;
   let downAt = 0;
   let touched = false;
-  let dragMode: 'gesture' | 'aim' = 'gesture';
+  let dragMode: DragMode = 'gesture';
+  /** Total distance travelled this gesture, not just the net displacement. */
+  let pathLen = 0;
 
   const press = (action: InputAction): void => {
     if (!held.has(action)) edges.add(action);
@@ -131,6 +141,7 @@ export function createInput(target: HTMLElement): InputState {
     lastY = pointer.y;
     deltaX = 0;
     deltaY = 0;
+    pathLen = 0;
     downAt = e.timeStamp;
     if (e.pointerType === 'touch') touched = true;
     press('confirm');
@@ -140,16 +151,26 @@ export function createInput(target: HTMLElement): InputState {
     pointer = localPoint(e);
     if (e.pointerType === 'touch') touched = true;
     if (!pointerHeld) return;
-    // Accumulated, because several moves can arrive between two frames.
-    deltaX += pointer.x - lastX;
-    deltaY += pointer.y - lastY;
+    const stepX = pointer.x - lastX;
+    const stepY = pointer.y - lastY;
     lastX = pointer.x;
     lastY = pointer.y;
+    pathLen += Math.abs(stepX) + Math.abs(stepY);
+    // A tap is never perfectly still. Swallow the first scrap of movement so
+    // the finger that commits a shot doesn't shove the aim on its way down.
+    if (pathLen < DEAD_ZONE) return;
+    // Accumulated, because several moves can arrive between two frames.
+    deltaX += stepX;
+    deltaY += stepY;
   };
 
   /** A flick is worth a d-pad press; anything shorter is a tap. */
   const SWIPE = 0.06; // fraction of the canvas
   const SWIPE_MS = 600;
+  /** Movement below this is tap jitter, not aiming. */
+  const DEAD_ZONE = 0.012;
+  /** Held this long in place, a touch means "get me out of here". */
+  const HOLD_MS = 550;
 
   const onPointerUp = (e: PointerEvent): void => {
     try {
@@ -162,10 +183,15 @@ export function createInput(target: HTMLElement): InputState {
     const dy = end.y - dragOriginY;
     const quick = e.timeStamp - downAt < SWIPE_MS;
 
-    const still = Math.abs(dx) < SWIPE && Math.abs(dy) < SWIPE;
-    if (dragMode === 'aim') {
-      // Everything here is aiming; only a tap in place commits the shot.
-      if (still) edges.add('select');
+    // Net displacement alone would call a drag that wandered out and came back
+    // "still", committing a shot the player was only lining up.
+    const still = pathLen < SWIPE && Math.abs(dx) < SWIPE && Math.abs(dy) < SWIPE;
+    if (dragMode === 'lock') {
+      // The press already committed; the release must not do anything else.
+    } else if (dragMode === 'aim') {
+      // Everything here is aiming, so no flick can mean "back" - a press held
+      // in place does instead.
+      if (still) edges.add(e.timeStamp - downAt >= HOLD_MS ? 'cancel' : 'select');
     } else if (quick && Math.abs(dy) > SWIPE && Math.abs(dy) > Math.abs(dx)) {
       edges.add(dy < 0 ? 'up' : 'down');
     } else if (quick && dx < -SWIPE && Math.abs(dx) > Math.abs(dy)) {
@@ -178,6 +204,7 @@ export function createInput(target: HTMLElement): InputState {
     pointerHeld = false;
     deltaX = 0;
     deltaY = 0;
+    pathLen = 0;
     held.delete('confirm');
   };
 
@@ -220,7 +247,7 @@ export function createInput(target: HTMLElement): InputState {
     get isTouch(): boolean {
       return touched;
     },
-    setDragMode(mode: 'gesture' | 'aim'): void {
+    setDragMode(mode: DragMode): void {
       dragMode = mode;
     },
     pressed(action: InputAction): boolean {

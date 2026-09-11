@@ -241,17 +241,6 @@ export function createHud(): HudLayer {
       font.drawCentered(ctx, hud.subtitle.toUpperCase(), HUD_W / 2, 60, INK.blue);
     }
 
-    if (hud.message) {
-      const message = hud.message.toUpperCase();
-      const scale = font.width(message, 2) <= HUD_W - 24 ? 2 : 1;
-      const w = font.width(message, scale) + 12;
-      const h = font.height(scale) + 9;
-      const x = Math.round((HUD_W - w) / 2);
-      const y = 110 + (blink(time, 3, 0.5) ? 0 : 1);
-      box(x, y, w, h, INK.white, INK.blueNight);
-      font.drawCentered(ctx, message, HUD_W / 2, y + 5, INK.white, scale);
-    }
-
     const panel = hud.panel;
     if (panel && panel.lines.length > 0) {
       const lines = panel.lines.map((line) => line.toUpperCase());
@@ -260,11 +249,14 @@ export function createHud(): HudLayer {
       const boxW = Math.min(HUD_W - 8, widest + 20);
       const boxX = Math.round((HUD_W - boxW) / 2);
       const step = 9;
-      // Clears the title band above and the hint bar below.
-      const top = 88;
-      box(boxX, top - 6, boxW, lines.length * step + 9, INK.white, INK.blueNight);
-      for (let i = 0; i < lines.length; i += 1) {
-        const line = lines[i] ?? '';
+      // The title band ends at 87; the hint bar starts at HUD_H - 16.
+      const top = 94;
+      // The hint bar starts at HUD_H - 16; stop one pixel short of it.
+      const room = Math.floor((HUD_H - 17 - (top - 6) - 9) / step);
+      const shown = lines.slice(0, Math.max(0, room));
+      box(boxX, top - 6, boxW, shown.length * step + 9, INK.white, INK.blueNight);
+      for (let i = 0; i < shown.length; i += 1) {
+        const line = shown[i] ?? '';
         // A blank line is a spacer, and a line ending in ':' is a heading.
         const heading = line.endsWith(':');
         font.draw(
@@ -275,6 +267,17 @@ export function createHud(): HudLayer {
           heading ? INK.gold : INK.white,
         );
       }
+    }
+
+    if (hud.message) {
+      const message = hud.message.toUpperCase();
+      const scale = font.width(message, 2) <= HUD_W - 24 ? 2 : 1;
+      const w = font.width(message, scale) + 12;
+      const h = font.height(scale) + 9;
+      const x = Math.round((HUD_W - w) / 2);
+      const y = 110 + (blink(time, 3, 0.5) ? 0 : 1);
+      box(x, y, w, h, INK.white, INK.blueNight);
+      font.drawCentered(ctx, message, HUD_W / 2, y + 5, INK.white, scale);
     }
 
     const menu = hud.menu;

@@ -38,7 +38,7 @@ const TOUCH: readonly string[] = [
   'AIM     DRAG THE SCREEN',
   'COMMIT  TAP',
   'MENUS   SWIPE UP OR DOWN',
-  'BACK    SWIPE LEFT',
+  'BACK    SWIPE LEFT OR HOLD',
 ];
 
 export function instructionLines(scheme: ControlScheme): readonly string[] {

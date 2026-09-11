@@ -481,9 +481,15 @@ function boot(): void {
     }
     if (started && !audio.ready() && input.holding) void audio.unlock();
 
-    // While lining up a shot, a drag is the aim - not a menu flick.
+    // A pointer gesture means different things at different moments: aiming
+    // while lining up, nothing at all once the meter is running, and menu
+    // navigation everywhere else.
     input.setDragMode(
-      screen === 'playing' && session && session.phase !== 'over' ? 'aim' : 'gesture',
+      screen !== 'playing' || !session || session.phase === 'over'
+        ? 'gesture'
+        : session.phase === 'aim'
+          ? 'aim'
+          : 'lock',
     );
 
     switch (screen) {
