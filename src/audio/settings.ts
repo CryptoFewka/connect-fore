@@ -4,12 +4,7 @@
  * is guarded and failures fall back to the defaults rather than breaking boot.
  */
 
-/**
- * Note: the `connect-fore:` key namespace predates the rename and stays put.
- * Renaming it would silently reset every existing player's saved settings for
- * no visible benefit - the key is never shown to anyone.
- */
-export const STORAGE_KEY = 'connect-fore:audio';
+export const STORAGE_KEY = 'fore:audio';
 
 export interface AudioSettings {
   muted: boolean;

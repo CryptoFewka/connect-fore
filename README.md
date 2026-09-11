@@ -107,20 +107,35 @@ back up, so the depth is genuine but every pixel is chunky. The HUD is drawn fro
 hand-coded 5×7 bitmap font into the same buffer, so the text lives inside the pixel
 grid rather than floating over it. No image or audio files ship with the game.
 
+## Build targets
+
+| Target | Command | Server origin | Who runs it |
+|---|---|---|---|
+| **Web** | `bun run build` | whatever origin served the page | **Cloudflare Workers Builds, on every push** |
+| **App** | `bun run build:app` | baked in from `.env.app` | a developer, before `cap sync` |
+
+The web target is deliberately untouched by the native work: it sets no `VITE_API_ORIGIN`, so the
+game talks to its own origin exactly as it always has, and Cloudflare keeps building and deploying
+it with no configuration change. `build:web` is an alias for it if you want to be explicit.
+
+The app target cannot do that - inside a native shell the page origin is `capacitor://localhost`,
+which has no server behind it - so `--mode app` reads `.env.app` and bakes in an absolute origin.
+An app build with no origin set fails at build time rather than producing an app that silently
+cannot connect.
+
 ## Shipping it as an app
 
 The game runs in a native shell via [Capacitor](https://capacitorjs.com); the build embeds
 directly, since it is one self-contained bundle with no runtime fetches beyond the room socket.
 
 ```sh
-VITE_API_ORIGIN=https://fore.automa.agency bun run build
+bun run build:app       # reads .env.app
 bunx cap add ios        # macOS only - needs Xcode and CocoaPods
 bunx cap add android
 bunx cap sync
 ```
 
-`VITE_API_ORIGIN` is what a bundled build talks to. Web builds leave it unset and keep using the
-page origin, exactly as before. The accounts, identifiers and store paperwork are tracked in
+The accounts, identifiers and store paperwork are tracked in
 [docs/PATH-TO-APP-STORES.md](docs/PATH-TO-APP-STORES.md).
 
 ## Deploying

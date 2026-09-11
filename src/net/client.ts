@@ -138,7 +138,7 @@ export interface RoomConnection {
   close(): void;
 }
 
-const CLIENT_ID_KEY = 'connect-fore:client-id';
+const CLIENT_ID_KEY = 'fore:client-id';
 const DEFAULTS = {
   heartbeatMs: 20_000,
   pongTimeoutMs: 10_000,

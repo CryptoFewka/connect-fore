@@ -54,7 +54,7 @@ generated on the developer machine and committed from there.
 
 ```sh
 bun install
-VITE_API_ORIGIN=https://fore.automa.agency bun run build
+bun run build:app        # web target is `bun run build`; Cloudflare runs that one
 bunx cap add ios         # macOS only
 bunx cap add android
 bunx cap sync
@@ -126,12 +126,9 @@ hosted Mac at roughly $50–100/month.
 
 ## Notes on decisions already taken
 
-- **The Cloudflare Worker keeps the name `connect-fore`.** Renaming it deploys a *new* Worker at a
+- **Everything is renamed except the Cloudflare Worker, which keeps the name `connect-fore`.** Renaming it deploys a *new* Worker at a
   new URL, orphaning the old one and breaking both the Cloudflare Builds connection and every
   challenge link already shared. Infrastructure identity is not branding.
-- **The `connect-fore:` localStorage key namespace also stays**, for the same class of reason:
-  renaming it would silently reset every existing player's name, difficulty and volume, and no one
-  ever sees the key.
 - **Apple's "repackaged website" rule (guideline 4.2)** is the main review risk for any WebView
   app. The defence here is unusually strong and should be stated in the review notes: the game
   ships no assets at all — geometry, textures, the bitmap font, every sound and all three music

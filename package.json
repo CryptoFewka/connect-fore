@@ -13,10 +13,11 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "lint": "eslint .",
     "test": "bun test",
-    "build:app": "VITE_API_ORIGIN=${VITE_API_ORIGIN:-https://fore.automa.agency} vite build",
+    "build:app": "vite build --mode app",
     "cap:sync": "bun run build:app && cap sync",
     "cap:ios": "bun run cap:sync && cap open ios",
-    "cap:android": "bun run cap:sync && cap open android"
+    "cap:android": "bun run cap:sync && cap open android",
+    "build:web": "vite build"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
