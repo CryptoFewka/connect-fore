@@ -7,9 +7,19 @@
  * simulation is deterministic and pure, "play back what the server said" and
  * "play back what I just did" are the same code path.
  */
-import { COURSE, cellCenter } from '../game/types';
-import type { Board, Difficulty, MatchState, Player, ShotParams, ShotRecord } from '../game/types';
+import { COURSE, ROWS, cellCenter } from '../game/types';
+import type {
+  Board,
+  CellRef,
+  Difficulty,
+  MatchState,
+  Player,
+  ShotParams,
+  ShotRecord,
+} from '../game/types';
 import { applyShot, newMatch } from '../game/match';
+import { chooseRivalColumn, rivalDue, threadsUntilRival } from '../game/practice';
+import { dropPiece, findWin } from '../game/rules';
 import { simulateShot } from '../game/shot';
 import { planShot } from '../game/ai';
 import { createRng } from '../game/rng';
@@ -28,6 +38,7 @@ export type TurnPhase =
   | 'flight'
   | 'drop'
   | 'explode'
+  | 'rival'
   | 'settle'
   | 'thinking'
   | 'waiting'
@@ -75,6 +86,8 @@ export interface Session {
   readonly shooter: Player;
   /** Where the meter is currently pointed. */
   readonly aim: { yaw: number; loft: number };
+  /** Range only: shots still to thread before the next rival puck. */
+  readonly threadsToRival: number | null;
   update(dt: number, input: InputState): void;
   buildFrame(time: number, hud: Partial<HudState>): RenderFrame;
   /** Online: feed an authoritative resolution in. */
@@ -84,9 +97,22 @@ export interface Session {
   reset(state?: MatchState): void;
 }
 
+/**
+ * The driving range: one player takes every shot, and a rival puck drops in
+ * now and then to spoil the line they were building.
+ */
+export interface PracticeOptions {
+  /** The seat that shoots, every turn, forever. */
+  readonly shooter: Player;
+  /** The seat the interfering pucks belong to. */
+  readonly rival: Player;
+}
+
 export interface SessionOptions {
   audio: AudioEngine;
   seats: SessionSeats;
+  /** Set for the driving range; absent for a real match. */
+  practice?: PracticeOptions;
   /** Present for single player; absent for hot-seat and online. */
   ai?: { seat: Player; difficulty: Difficulty };
   hooks?: SessionHooks;
@@ -120,6 +146,13 @@ export function createSession(options: SessionOptions): Session {
   let shake = 0;
   let aiPlan: ShotParams | null = null;
   let touch = false;
+  const practice = options.practice;
+  /** Range only: shots threaded so far, which is what arms the rival puck. */
+  let threads = 0;
+  /** Range only: a rival puck queued to drop once the shot's caption clears. */
+  let rivalCol: number | null = null;
+  /** Range only: the rival puck's landing, held while it falls. */
+  let rivalLanding: { board: Board; rest: CellRef } | null = null;
 
   const ball: { x: number; y: number; z: number; visible: boolean } = {
     x: COURSE.tee.x,
@@ -205,7 +238,17 @@ export function createSession(options: SessionOptions): Session {
     }
     const { record, next } = pending;
     const previous = state;
-    state = next;
+    // In the range the honour never passes: whatever `applyShot` decided, the
+    // same player is up again.
+    state = practice ? { ...next, current: practice.shooter } : next;
+
+    if (practice && record.outcome === 'thread') {
+      threads += 1;
+      if (rivalDue(threads, state.board, practice.shooter)) {
+        const col = chooseRivalColumn(state.board, practice.shooter, practice.rival);
+        rivalCol = col >= 0 ? col : null;
+      }
+    }
 
     if (record.outcome === 'thread') {
       audio.sfx('thread');
@@ -224,11 +267,16 @@ export function createSession(options: SessionOptions): Session {
     if (next.status === 'won' && next.winner) {
       const winnerIndex = next.winner - 1;
       score = winnerIndex === 0 ? [score[0] + 1, score[1]] : [score[0], score[1] + 1];
-      message = `${seats.names[winnerIndex]} WINS!`;
-      // Playing one side of the match: it matters which way it went.
-      const lost = seats.local.length === 1 && !isLocal(next.winner);
-      audio.sfx(lost ? 'lose' : 'win');
-      audio.music('victory');
+      if (practice) {
+        message = 'FOUR IN A ROW!';
+        audio.sfx('win');
+      } else {
+        message = `${seats.names[winnerIndex]} WINS!`;
+        // Playing one side of the match: it matters which way it went.
+        const lost = seats.local.length === 1 && !isLocal(next.winner);
+        audio.sfx(lost ? 'lose' : 'win');
+        audio.music('victory');
+      }
     } else if (next.status === 'draw') {
       message = 'BOARD FULL - DRAW';
       audio.sfx('draw');
@@ -322,6 +370,51 @@ export function createSession(options: SessionOptions): Session {
     }
   }
 
+  /**
+   * Drops the queued rival puck once the shot's own caption has cleared, using
+   * the same fall animation a threaded disc gets - it should look like a puck
+   * arriving, not like the board quietly changing behind your back.
+   */
+  function beginRivalDrop(): boolean {
+    if (!practice || rivalCol === null) return false;
+    const col = rivalCol;
+    rivalCol = null;
+    const landed = dropPiece(state.board, col, practice.rival);
+    if (!landed) return false;
+
+    rivalLanding = landed;
+    dropY = cellCenter(col, ROWS - 1).y + COURSE.cellPitch;
+    dropTargetY = cellCenter(landed.rest.col, landed.rest.row).y;
+    message = 'RIVAL PUCK INCOMING!';
+    audio.sfx('drop');
+    phase = 'rival';
+    return true;
+  }
+
+  function updateRivalDrop(dt: number): void {
+    dropY -= DROP_SPEED * dt;
+    if (dropY > dropTargetY) return;
+
+    dropY = dropTargetY;
+    audio.sfx('clack');
+    if (rivalLanding) {
+      const board = rivalLanding.board;
+      const win = findWin(board);
+      state = {
+        ...state,
+        board,
+        // chooseRivalColumn refuses to complete four for the rival, so a line
+        // here can only be the player's own, made by the puck landing on top.
+        status: win ? 'won' : state.status,
+        winner: win ? win.player : state.winner,
+        winLine: win ? win.line : state.winLine,
+      };
+      rivalLanding = null;
+    }
+    message = null;
+    beginTurn();
+  }
+
   function updateExplode(dt: number): void {
     if (blastT < 1) {
       blastT = Math.min(1, blastT + dt / BLAST_TIME);
@@ -353,6 +446,9 @@ export function createSession(options: SessionOptions): Session {
     },
     get aim(): { yaw: number; loft: number } {
       return { yaw: meter.yaw, loft: meter.loft };
+    },
+    get threadsToRival(): number | null {
+      return practice ? threadsUntilRival(threads, state.board, practice.shooter) : null;
     },
 
     update(dt: number, input: InputState): void {
@@ -405,13 +501,25 @@ export function createSession(options: SessionOptions): Session {
         case 'settle':
           timer -= dt;
           if (timer <= 0) {
-            if (state.status === 'playing') {
+            if (practice && state.status !== 'playing') {
+              // The range never ends. Wipe the board and keep swinging.
+              threads = 0;
+              rivalCol = null;
+              state = newMatch(practice.shooter);
+              beginTurn();
+            } else if (beginRivalDrop()) {
+              // Handled: the puck is on its way down.
+            } else if (state.status === 'playing') {
               beginTurn();
             } else {
               phase = 'over';
               hooks.onFinished?.(state);
             }
           }
+          break;
+
+        case 'rival':
+          updateRivalDrop(dt);
           break;
 
         case 'waiting':
@@ -432,7 +540,7 @@ export function createSession(options: SessionOptions): Session {
       const camera: CameraShot =
         phase === 'over'
           ? 'result'
-          : phase === 'drop' || phase === 'settle'
+          : phase === 'drop' || phase === 'settle' || phase === 'rival'
             ? 'board'
             : phase === 'flight'
               ? 'follow'
@@ -450,13 +558,15 @@ export function createSession(options: SessionOptions): Session {
         // Mid-blast the old arrangement stays on screen, so the discs the
         // player watches slide are the ones that actually moved.
         board: blasting && preBlastBoard ? preBlastBoard : state.board,
-        ball: { ...ball, visible: ball.visible && phase !== 'drop' && !blasting },
+        ball: { ...ball, visible: ball.visible && phase !== 'drop' && phase !== 'rival' && !blasting },
         aim: aiming ? { yaw: meter.yaw, loft: meter.loft } : null,
         camera,
         fallingDisc:
           phase === 'drop' && pending?.record.rest
             ? { player: pending.record.player, col: pending.record.rest.col, y: dropY }
-            : null,
+            : phase === 'rival' && rivalLanding && practice
+              ? { player: practice.rival, col: rivalLanding.rest.col, y: dropY }
+              : null,
         explosion:
           blasting && destroyed ? { col: destroyed.col, row: destroyed.row, t: blastT } : null,
         collapse:
@@ -503,7 +613,10 @@ export function createSession(options: SessionOptions): Session {
     },
 
     reset(next?: MatchState): void {
-      state = next ?? newMatch();
+      state = next ?? newMatch(practice?.shooter);
+      threads = 0;
+      rivalCol = null;
+      rivalLanding = null;
       // A brand new match starts everyone back at the default aim.
       delete lastAim[1];
       delete lastAim[2];

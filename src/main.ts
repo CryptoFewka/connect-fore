@@ -13,6 +13,8 @@ import type { AudioEngine } from './audio/api';
 import { createInput } from './ui/input';
 import type { InputState } from './ui/input';
 import { createSession } from './ui/session';
+import { createTutorial } from './ui/tutorial';
+import type { Tutorial } from './ui/tutorial';
 import type { Session, SessionSeats } from './ui/session';
 import { createCodePicker, createMenu, roomFromHash } from './ui/screens';
 import { instructionLines, otherScheme, schemeHint } from './ui/instructions';
@@ -62,6 +64,9 @@ function boot(): void {
   const settings: Settings = loadSettings();
 
   const mainMenu = createMenu([
+    // The lesson first: the shot takes some learning.
+    { id: 'tutorial', label: 'TUTORIAL' },
+    { id: 'range', label: 'DRIVING RANGE' },
     { id: 'solo', label: '1 PLAYER' },
     { id: 'hotseat', label: '2 PLAYER (SAME SCREEN)' },
     { id: 'online', label: 'PLAY ONLINE' },
@@ -84,7 +89,7 @@ function boot(): void {
    */
   const quitMenu = createMenu([
     { id: 'stay', label: 'KEEP PLAYING' },
-    { id: 'quit', label: 'QUIT MATCH' },
+    { id: 'quit', label: 'QUIT' },
   ] as const);
 
   let screen: Screen = 'title';
@@ -99,6 +104,13 @@ function boot(): void {
   const fatal: string | null = null;
   let started = false;
   let confirmingQuit = false;
+  /**
+   * The range and the tutorial run as the 'playing' screen rather than screens
+   * of their own - touch aiming, the music resume and the deep-link guard are
+   * all keyed on that, and a new screen value would quietly lose them.
+   */
+  let practising = false;
+  let tutorial: Tutorial | null = null;
   /** Which control scheme the instructions screen is showing. */
   let helpScheme: ControlScheme = 'keys';
 
@@ -127,6 +139,25 @@ function boot(): void {
       seed: (Date.now() ^ 0x9e3779b9) >>> 0,
     });
     session.reset(newMatch());
+    practising = false;
+    tutorial = null;
+    screen = 'playing';
+    audio.music('play');
+  }
+
+  /** The driving range, with the lesson running over it or not. */
+  function startPractice(withTutorial: boolean): void {
+    const seats: SessionSeats = {
+      names: [settings.name, 'RIVAL'],
+      // Both seats count as local: a session whose turn falls to a seat that is
+      // neither local nor a CPU waits for an opponent that never comes.
+      local: [1, 2],
+      connected: [true, true],
+    };
+    session = createSession({ audio, seats, practice: { shooter: 1, rival: 2 } });
+    session.reset();
+    practising = true;
+    tutorial = withTutorial ? createTutorial() : null;
     screen = 'playing';
     audio.music('play');
   }
@@ -211,6 +242,8 @@ function boot(): void {
 
   function leaveMatch(): void {
     confirmingQuit = false;
+    practising = false;
+    tutorial = null;
     connection?.close();
     connection = null;
     session = null;
@@ -255,7 +288,13 @@ function boot(): void {
   function updateMenus(): void {
     if (screen === 'main') {
       const choice = mainMenu.update(input, beep);
-      if (choice === 'solo') {
+      if (choice === 'tutorial') {
+        select();
+        startPractice(true);
+      } else if (choice === 'range') {
+        select();
+        startPractice(false);
+      } else if (choice === 'solo') {
         select();
         screen = 'difficulty';
       } else if (choice === 'hotseat') {
@@ -357,6 +396,19 @@ function boot(): void {
     }
 
     session.update(dt, input);
+
+    if (tutorial && !tutorial.finished) {
+      const advanced = tutorial.update({
+        phase: session.phase,
+        aim: session.aim,
+        turn: session.state.turn,
+        lastOutcome: session.state.lastShot?.outcome ?? null,
+      });
+      if (advanced) {
+        audio.sfx('menu-select');
+        if (tutorial.finished) say('THAT IS THE SHOT. RANGE IS YOURS.', 3.5);
+      }
+    }
 
     if (session.phase === 'over' && input.pressed('select')) {
       select();
@@ -463,16 +515,38 @@ function boot(): void {
           hint: 'FIRE COPIES THE LINK   BACK EXITS',
         });
 
-      case 'playing':
+      case 'playing': {
+        const coaching = tutorial?.coaching() ?? null;
+        const toRival = practising ? (session?.threadsToRival ?? null) : null;
         return (
           session?.buildFrame(time, {
             roomCode,
+            // One shooter, so one scoreboard panel.
+            ...(practising && session
+              ? {
+                  players: [
+                    {
+                      name: settings.name,
+                      player: 1 as const,
+                      score: 0,
+                      active: true,
+                      connected: true,
+                    },
+                  ],
+                  hint:
+                    toRival === null
+                      ? 'DRIVING RANGE   BACK TO LEAVE'
+                      : `RIVAL PUCK IN ${toRival} THREADED SHOT${toRival === 1 ? '' : 'S'}`,
+                }
+              : {}),
+            // The lesson talks over the range, but never over its own captions.
+            ...(coaching ? { message: coaching.message, hint: coaching.hint } : {}),
             ...(banner ? { message: banner } : {}),
             ...(confirmingQuit
               ? {
                   // The title band, not the message banner: the banner sits at
                   // the same height as the menu box and the two collide.
-                  title: 'QUIT THE MATCH?',
+                  title: practising ? 'LEAVE THE RANGE?' : 'QUIT THE MATCH?',
                   message: null,
                   menu: { items: quitMenu.labels, index: quitMenu.index },
                   // The meter would only invite a mistimed tap at the dialog.
@@ -482,6 +556,7 @@ function boot(): void {
               : {}),
           }) ?? menuFrame(time, {})
         );
+      }
 
       case 'error':
         return menuFrame(time, { title: 'ERROR', subtitle: fatal, hint: 'RELOAD THE PAGE' });
@@ -495,6 +570,9 @@ function boot(): void {
   (window as unknown as { connectFore: () => unknown }).connectFore = () => ({
     screen,
     quitPrompt: confirmingQuit,
+    practising,
+    tutorialStep: tutorial?.step ?? null,
+    threadsToRival: session?.threadsToRival ?? null,
     phase: session?.phase ?? null,
     turn: session?.state.turn ?? null,
     current: session?.state.current ?? null,
