@@ -123,6 +123,7 @@ const frame: RenderFrame = {
     roomCode: 'FORE42',
     hint: 'A: SET POWER   B: BACK',
     menu: null,
+    panel: null,
   },
   time: 0,
 };

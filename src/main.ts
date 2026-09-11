@@ -15,6 +15,8 @@ import type { InputState } from './ui/input';
 import { createSession } from './ui/session';
 import type { Session, SessionSeats } from './ui/session';
 import { createCodePicker, createMenu, roomFromHash } from './ui/screens';
+import { instructionLines, otherScheme, schemeHint } from './ui/instructions';
+import type { ControlScheme } from './ui/instructions';
 import type { CodePicker } from './ui/screens';
 import { DEFAULT_NAME, loadSettings, saveSettings } from './ui/settings';
 import type { Settings } from './ui/settings';
@@ -35,6 +37,7 @@ type Screen =
   | 'main'
   | 'difficulty'
   | 'online'
+  | 'help'
   | 'code'
   | 'lobby'
   | 'playing'
@@ -62,6 +65,7 @@ function boot(): void {
     { id: 'solo', label: '1 PLAYER' },
     { id: 'hotseat', label: '2 PLAYER (SAME SCREEN)' },
     { id: 'online', label: 'PLAY ONLINE' },
+    { id: 'help', label: 'HOW TO PLAY' },
   ] as const);
   const difficultyMenu = createMenu([
     { id: 'easy', label: 'EASY' },
@@ -85,6 +89,8 @@ function boot(): void {
   let bannerTimer = 0;
   const fatal: string | null = null;
   let started = false;
+  /** Which control scheme the instructions screen is showing. */
+  let helpScheme: ControlScheme = 'keys';
 
   const beep = (): void => audio.sfx('menu-move');
   const select = (): void => audio.sfx('menu-select');
@@ -247,6 +253,11 @@ function boot(): void {
       } else if (choice === 'online') {
         select();
         screen = 'online';
+      } else if (choice === 'help') {
+        select();
+        // Open on whichever scheme they've actually been using.
+        helpScheme = input.isTouch ? 'touch' : 'keys';
+        screen = 'help';
       }
       return;
     }
@@ -291,6 +302,20 @@ function boot(): void {
           say('BAD CODE');
         }
       }
+    }
+  }
+
+  function updateHelp(): void {
+    // Switch with left/right on a keyboard, or a tap on a touchscreen - where
+    // left/right don't exist and a swipe left already means "back".
+    if (input.pressed('left') || input.pressed('right') || input.pressed('select')) {
+      helpScheme = otherScheme(helpScheme);
+      beep();
+      return;
+    }
+    if (input.pressed('cancel')) {
+      select();
+      screen = 'main';
     }
   }
 
@@ -341,6 +366,7 @@ function boot(): void {
         roomCode,
         hint: null,
         menu: null,
+        panel: null,
         ...hud,
       },
     };
@@ -374,6 +400,15 @@ function boot(): void {
           title: 'PLAY ONLINE',
           menu: { items: onlineMenu.labels, index: onlineMenu.index },
           hint: 'BACK CANCELS',
+        });
+
+      case 'help':
+        // No subtitle: the panel sits where one would be drawn, and the
+        // scheme is named in its own heading instead.
+        return menuFrame(time, {
+          title: 'HOW TO PLAY',
+          panel: { lines: instructionLines(helpScheme) },
+          hint: schemeHint(helpScheme),
         });
 
       case 'code': {
@@ -420,6 +455,7 @@ function boot(): void {
     status: session?.state.status ?? null,
     discs: session?.state.board.filter((cell) => cell !== 0).length ?? 0,
     lastOutcome: session?.state.lastShot?.outcome ?? null,
+    aim: session?.aim ?? null,
     winner: session?.state.winner ?? null,
     connection: connectionStatus,
     room: roomCode,
@@ -445,6 +481,11 @@ function boot(): void {
     }
     if (started && !audio.ready() && input.holding) void audio.unlock();
 
+    // While lining up a shot, a drag is the aim - not a menu flick.
+    input.setDragMode(
+      screen === 'playing' && session && session.phase !== 'over' ? 'aim' : 'gesture',
+    );
+
     switch (screen) {
       case 'title':
         updateTitle();
@@ -455,6 +496,9 @@ function boot(): void {
       case 'online':
       case 'code':
         updateMenus();
+        break;
+      case 'help':
+        updateHelp();
         break;
       case 'lobby':
         updateLobby();

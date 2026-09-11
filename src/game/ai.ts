@@ -38,6 +38,21 @@ export const CENTRE_ORDER: readonly number[] = [3, 2, 4, 1, 5, 0, 6];
 
 export const AI_DEPTH = 4;
 
+/**
+ * How far ahead each difficulty looks.
+ *
+ * Easy searches a single ply, which is not the same as playing blind: the
+ * immediate-win check, the opponent block and the safe-column filter in
+ * `chooseColumn` all run before the search, so easy still takes a win it can
+ * see and still stops yours. What it loses is the ability to build threats you
+ * cannot answer.
+ */
+export const SEARCH_DEPTH: Readonly<Record<Difficulty, number>> = {
+  easy: 1,
+  normal: AI_DEPTH,
+  hard: AI_DEPTH,
+};
+
 const WIN_SCORE = 100000;
 
 /** Weights for open windows of four. Blocking is valued slightly above attacking. */
@@ -366,7 +381,7 @@ export interface ErrorProfile {
  * `APERTURE_TOLERANCE` (0.26) of error, so these sigmas are small numbers.
  */
 export const ERROR_PROFILES: Readonly<Record<Difficulty, ErrorProfile>> = {
-  easy: { aimSigma: 0.19, accuracySigma: 0.05 },
+  easy: { aimSigma: 0.235, accuracySigma: 0.062 },
   normal: { aimSigma: 0.14, accuracySigma: 0.03 },
   hard: { aimSigma: 0.111, accuracySigma: 0.015 },
 };
@@ -433,7 +448,7 @@ export function planShot(
   difficulty: Difficulty,
   rng: Rng,
 ): ShotParams {
-  const col = chooseColumn(board, player);
+  const col = chooseColumn(board, player, SEARCH_DEPTH[difficulty]);
   if (col < 0) return desperationShot(board, 0);
 
   // Rotate the club selection so the AI doesn't hit the identical shot forever.

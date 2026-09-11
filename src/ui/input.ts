@@ -29,6 +29,17 @@ export interface InputState {
   readonly holding: boolean;
   /** Latest pointer position in 0..1 of the canvas, or null. */
   readonly pointer: { x: number; y: number } | null;
+  /** How far the pointer moved this frame, in fractions of the canvas. */
+  readonly dragDeltaX: number;
+  readonly dragDeltaY: number;
+  /** True once the player has touched the screen rather than clicked it. */
+  readonly isTouch: boolean;
+  /**
+   * While aiming, a drag steers the shot, so the flick gestures that drive the
+   * menus have to stand down - otherwise swinging the aim left would quit the
+   * match.
+   */
+  setDragMode(mode: 'gesture' | 'aim'): void;
   /** Call once per frame, after the game has read the state. */
   endFrame(): void;
   dispose(): void;
@@ -59,8 +70,13 @@ export function createInput(target: HTMLElement): InputState {
   let pointerHeld = false;
   let dragOriginX = 0;
   let dragOriginY = 0;
-  let dragX = 0;
+  let lastX = 0;
+  let lastY = 0;
+  let deltaX = 0;
+  let deltaY = 0;
   let downAt = 0;
+  let touched = false;
+  let dragMode: 'gesture' | 'aim' = 'gesture';
 
   const press = (action: InputAction): void => {
     if (!held.has(action)) edges.add(action);
@@ -99,19 +115,36 @@ export function createInput(target: HTMLElement): InputState {
   };
 
   const onPointerDown = (e: PointerEvent): void => {
-    target.setPointerCapture?.(e.pointerId);
+    // Capture keeps a drag alive if the finger leaves the canvas, but it throws
+    // for a pointer the browser no longer considers active - and losing the rest
+    // of this handler would leave input dead.
+    try {
+      target.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* not capturable; the drag still works, it just won't track off-canvas */
+    }
     pointer = localPoint(e);
     pointerHeld = true;
     dragOriginX = pointer.x;
     dragOriginY = pointer.y;
-    dragX = 0;
+    lastX = pointer.x;
+    lastY = pointer.y;
+    deltaX = 0;
+    deltaY = 0;
     downAt = e.timeStamp;
+    if (e.pointerType === 'touch') touched = true;
     press('confirm');
   };
 
   const onPointerMove = (e: PointerEvent): void => {
     pointer = localPoint(e);
-    if (pointerHeld) dragX = pointer.x - dragOriginX;
+    if (e.pointerType === 'touch') touched = true;
+    if (!pointerHeld) return;
+    // Accumulated, because several moves can arrive between two frames.
+    deltaX += pointer.x - lastX;
+    deltaY += pointer.y - lastY;
+    lastX = pointer.x;
+    lastY = pointer.y;
   };
 
   /** A flick is worth a d-pad press; anything shorter is a tap. */
@@ -119,23 +152,32 @@ export function createInput(target: HTMLElement): InputState {
   const SWIPE_MS = 600;
 
   const onPointerUp = (e: PointerEvent): void => {
-    target.releasePointerCapture?.(e.pointerId);
+    try {
+      target.releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* never captured */
+    }
     const end = localPoint(e);
     const dx = end.x - dragOriginX;
     const dy = end.y - dragOriginY;
     const quick = e.timeStamp - downAt < SWIPE_MS;
 
-    if (quick && Math.abs(dy) > SWIPE && Math.abs(dy) > Math.abs(dx)) {
+    const still = Math.abs(dx) < SWIPE && Math.abs(dy) < SWIPE;
+    if (dragMode === 'aim') {
+      // Everything here is aiming; only a tap in place commits the shot.
+      if (still) edges.add('select');
+    } else if (quick && Math.abs(dy) > SWIPE && Math.abs(dy) > Math.abs(dx)) {
       edges.add(dy < 0 ? 'up' : 'down');
     } else if (quick && dx < -SWIPE && Math.abs(dx) > Math.abs(dy)) {
       edges.add('cancel');
-    } else if (Math.abs(dx) < SWIPE && Math.abs(dy) < SWIPE) {
+    } else if (still) {
       // A tap in place: the menus' commit, kept off the swipe gestures.
       edges.add('select');
     }
 
     pointerHeld = false;
-    dragX = 0;
+    deltaX = 0;
+    deltaY = 0;
     held.delete('confirm');
   };
 
@@ -155,8 +197,6 @@ export function createInput(target: HTMLElement): InputState {
       let axis = 0;
       if (held.has('left')) axis -= 1;
       if (held.has('right')) axis += 1;
-      // A horizontal drag doubles as an analogue nudge on touch.
-      if (axis === 0 && pointerHeld) axis = Math.max(-1, Math.min(1, dragX * 6));
       return axis;
     },
     get axisY(): number {
@@ -171,11 +211,25 @@ export function createInput(target: HTMLElement): InputState {
     get pointer(): { x: number; y: number } | null {
       return pointer;
     },
+    get dragDeltaX(): number {
+      return deltaX;
+    },
+    get dragDeltaY(): number {
+      return deltaY;
+    },
+    get isTouch(): boolean {
+      return touched;
+    },
+    setDragMode(mode: 'gesture' | 'aim'): void {
+      dragMode = mode;
+    },
     pressed(action: InputAction): boolean {
       return edges.has(action);
     },
     endFrame(): void {
       edges.clear();
+      deltaX = 0;
+      deltaY = 0;
     },
     dispose(): void {
       target.removeEventListener('pointerdown', onPointerDown);

@@ -50,6 +50,8 @@ export interface HudState {
   roomCode: string | null;
   /** Bottom-of-screen prompt. */
   hint: string | null;
+  /** A block of left-aligned lines, for the instructions screen. */
+  panel: { lines: readonly string[] } | null;
   menu: { items: readonly string[]; index: number } | null;
 }
 

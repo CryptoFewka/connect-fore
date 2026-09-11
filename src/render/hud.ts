@@ -252,6 +252,31 @@ export function createHud(): HudLayer {
       font.drawCentered(ctx, message, HUD_W / 2, y + 5, INK.white, scale);
     }
 
+    const panel = hud.panel;
+    if (panel && panel.lines.length > 0) {
+      const lines = panel.lines.map((line) => line.toUpperCase());
+      let widest = 0;
+      for (const line of lines) widest = Math.max(widest, font.width(line));
+      const boxW = Math.min(HUD_W - 8, widest + 20);
+      const boxX = Math.round((HUD_W - boxW) / 2);
+      const step = 9;
+      // Clears the title band above and the hint bar below.
+      const top = 88;
+      box(boxX, top - 6, boxW, lines.length * step + 9, INK.white, INK.blueNight);
+      for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i] ?? '';
+        // A blank line is a spacer, and a line ending in ':' is a heading.
+        const heading = line.endsWith(':');
+        font.draw(
+          ctx,
+          heading ? line.slice(0, -1) : line,
+          boxX + 10,
+          top + i * step,
+          heading ? INK.gold : INK.white,
+        );
+      }
+    }
+
     const menu = hud.menu;
     if (menu && menu.items.length > 0) {
       let widest = 0;
