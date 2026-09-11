@@ -353,6 +353,8 @@ function boot(): void {
       aim: null,
       camera: 'title',
       fallingDisc: null,
+      explosion: null,
+      collapse: null,
       highlight: null,
       shake: 0,
       time,

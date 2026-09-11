@@ -103,6 +103,9 @@ export const SCENE = {
   discTwo: 0xd48820,
   discTwoDark: 0x783c00,
   discFlash: 0xececec,
+  /** Explosion shards: a white-hot instant, then cooling embers. */
+  blastFlash: 0xfcfcfc,
+  blastCore: 0xfc9838,
 
   ball: 0xececec,
   ballShade: 0xa0a2a0,

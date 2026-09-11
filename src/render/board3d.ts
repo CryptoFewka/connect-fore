@@ -18,9 +18,30 @@ export interface FallingDiscView {
   y: number;
 }
 
+/** A disc being destroyed; `t` runs 0 to 1 over the burst. */
+export interface ExplosionView {
+  readonly col: number;
+  readonly row: number;
+  readonly t: number;
+}
+
+/** The stack above `aboveRow` in `col`, drawn `offset` cells lower. */
+export interface CollapseView {
+  readonly col: number;
+  readonly aboveRow: number;
+  readonly offset: number;
+}
+
 export interface Board3D {
   readonly group: THREE.Group;
-  update(board: Board, falling: FallingDiscView | null, highlight: WinLine | null, time: number): void;
+  update(
+    board: Board,
+    falling: FallingDiscView | null,
+    explosion: ExplosionView | null,
+    collapse: CollapseView | null,
+    highlight: WinLine | null,
+    time: number,
+  ): void;
   dispose(): void;
 }
 
@@ -235,7 +256,30 @@ export function createBoard3D(): Board3D {
   fallingMesh.visible = false;
   group.add(fallingMesh);
 
-  const update: Board3D['update'] = (board, falling, highlight, time) => {
+  // The blast: a handful of chunky shards thrown outward on fixed bearings, so
+  // it reads as a NES explosion rather than a particle system.
+  const SHARDS = 10;
+  const shardGeometry = new THREE.BoxGeometry(0.26, 0.26, 0.26);
+  const shardMaterial = createToonMaterial({ color: SCENE.blastCore, unlit: true, fogAmount: 0 });
+  const shardFlash = createToonMaterial({ color: SCENE.blastFlash, unlit: true, fogAmount: 0 });
+  geometries.push(shardGeometry);
+  materials.push(shardMaterial, shardFlash);
+  const shards: THREE.Mesh[] = [];
+  for (let i = 0; i < SHARDS; i += 1) {
+    const mesh = new THREE.Mesh(shardGeometry, shardMaterial);
+    mesh.visible = false;
+    shards.push(mesh);
+    group.add(mesh);
+  }
+
+  // A white-hot core for the first instant of the blast.
+  const flashGeometry = new THREE.BoxGeometry(1, 1, 0.2);
+  geometries.push(flashGeometry);
+  const flashMesh = new THREE.Mesh(flashGeometry, shardFlash);
+  flashMesh.visible = false;
+  group.add(flashMesh);
+
+  const update: Board3D['update'] = (board, falling, explosion, collapse, highlight, time) => {
     const flashOn = highlight !== null && Math.floor(time * 8) % 2 === 0;
     const h0 = highlight ? highlight[0] : -1;
     const h1 = highlight ? highlight[1] : -1;
@@ -250,10 +294,62 @@ export function createBoard3D(): Board3D {
         mesh.visible = false;
         continue;
       }
+      const col = i % COLS;
+      const row = Math.floor(i / COLS);
+
+      // The disc being blown apart is gone from the moment the burst starts.
+      if (explosion && col === explosion.col && row === explosion.row) {
+        mesh.visible = false;
+        continue;
+      }
+
       mesh.visible = true;
+      const base = cellCenter(col, row);
+      const sliding = collapse && col === collapse.col && row > collapse.aboveRow;
+      mesh.position.y = sliding ? base.y - collapse.offset * COURSE.cellPitch : base.y;
+
       const lit = flashOn && (i === h0 || i === h1 || i === h2 || i === h3);
       const wanted = lit ? flashMaterials[cell] : discMaterials[cell];
       if (mesh.material !== wanted) mesh.material = wanted;
+    }
+
+    if (explosion) {
+      const centre = cellCenter(explosion.col, explosion.row);
+      const t = Math.min(1, Math.max(0, explosion.t));
+      const reach = 0.2 + t * 0.95;
+      const scale = Math.max(0.05, 1 - t * 0.8);
+      for (let i = 0; i < SHARDS; i += 1) {
+        const mesh = shards[i];
+        if (!mesh) continue;
+        const angle = (i / SHARDS) * Math.PI * 2 + 0.4;
+        mesh.visible = true;
+        mesh.position.set(
+          centre.x + Math.cos(angle) * reach,
+          // Gravity on the shards, so they arc instead of sliding outward flat.
+          centre.y + Math.sin(angle) * reach - t * t * 0.9,
+          // Thrown clear of the panel, or the board face hides the whole blast.
+          COURSE.boardZ + 0.45 + t * 0.9 + Math.cos(angle * 2.3) * 0.25,
+        );
+        mesh.scale.setScalar(scale);
+        mesh.rotation.set(angle + t * 4, t * 5, 0);
+        const wanted = t < 0.35 ? shardFlash : shardMaterial;
+        if (mesh.material !== wanted) mesh.material = wanted;
+      }
+
+      // The core: a hard flash that swells and is gone within a third of the burst.
+      if (t < 0.4) {
+        const grow = 0.6 + t * 4.2;
+        flashMesh.visible = true;
+        flashMesh.position.set(centre.x, centre.y, COURSE.boardZ + 0.5);
+        flashMesh.scale.set(grow, grow, 1);
+        const wanted = t < 0.18 ? shardFlash : shardMaterial;
+        if (flashMesh.material !== wanted) flashMesh.material = wanted;
+      } else {
+        flashMesh.visible = false;
+      }
+    } else {
+      for (const mesh of shards) mesh.visible = false;
+      flashMesh.visible = false;
     }
 
     if (falling) {

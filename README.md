@@ -4,8 +4,13 @@ Connect Four, except you don't drop the piece — you hit a golf ball at the boa
 
 Line up your aim, stop the power meter, catch the sweet spot, and thread the ball
 through one of the open cells. Get it through and a piece spawns in that hole and
-falls down the column to rest. Clip the frame, or a disc somebody already placed,
-and the ball bounces away and **you forfeit your turn**.
+falls down the column to rest. Clip the frame, or one of your own discs, and the
+ball bounces away and **you forfeit your turn**.
+
+Hit one of your **opponent's** discs, though, and it detonates — their whole stack
+above it drops a slot into the hole you just made. It still costs you the turn, so
+demolition is a choice, not a freebie: a shot spent wrecking their shape is a shot
+not spent building yours.
 
 The catch builds as you play: every disc you land closes an aperture, so the low,
 easy holes in a column disappear and you're forced to loft the ball into the tight

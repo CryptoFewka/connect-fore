@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { applyShot, newMatch, otherPlayer, rematchMatch } from '../src/game/match';
-import { aimForColumn } from '../src/game/ai';
+import { aimForColumn, solveAim } from '../src/game/ai';
 import { cellAt, setCell } from '../src/game/rules';
 import type { Board, Cell, MatchState, ShotParams } from '../src/game/types';
 import { CELL_COUNT, COLS, ROWS } from '../src/game/types';
@@ -10,6 +10,18 @@ function shotAt(board: Board, col: number): ShotParams {
   const params = aimForColumn(board, col);
   expect(params).not.toBeNull();
   return params!;
+}
+
+/**
+ * A swing that arrives at a specific cell, filled or not. `aimForColumn` only
+ * solves for open apertures, so the aim is solved against a board where the
+ * target cell is empty and then fired at the real one.
+ */
+function shotAtCell(board: Board, col: number, row: number): ShotParams {
+  const cleared = setCell(board, col, row, 0);
+  const solution = solveAim(cleared, { col, row });
+  expect(solution).not.toBeNull();
+  return solution!.params;
 }
 
 /** Plays a clean threading shot into `col`. */
@@ -74,19 +86,51 @@ describe('applying a shot', () => {
     expect(cellAt(next.board, 2, 1)).toBe(2);
   });
 
-  test('a bounce forfeits the turn — no second swing', () => {
-    let state = newMatch();
-    state = threadInto(state, 3).state;
-    // Player two aims at the aperture player one just plugged.
-    const blocked: ShotParams = { yaw: 0, loft: 0.29080979347229, power: 0.7, accuracy: 0 };
+  test('bouncing off your own disc forfeits the turn — no second swing', () => {
+    const opened = threadInto(newMatch(), 3).state; // player one plugs (3,0)
+    // ...and then player one is somehow up again, shooting at their own disc.
+    const state: MatchState = { ...opened, current: 1 };
+    const blocked = shotAtCell(state.board, 3, 0);
     const { state: next, record } = applyShot(state, blocked);
     expect(record.outcome).toBe('bounce');
-    expect(record.player).toBe(2);
+    expect(record.player).toBe(1);
     expect(record.entry).toBeNull();
     expect(record.rest).toBeNull();
+    expect(record.destroyed).toBeNull();
     expect(next.board).toEqual(state.board);
     expect(next.turn).toBe(state.turn + 1);
+    expect(next.current).toBe(2);
+  });
+
+  test('striking an opponent disc explodes it, and still costs the turn', () => {
+    const state = threadInto(newMatch(), 3).state; // player one at (3,0), player two to play
+    expect(cellAt(state.board, 3, 0)).toBe(1);
+
+    const { state: next, record } = applyShot(state, shotAtCell(state.board, 3, 0));
+    expect(record.outcome).toBe('explode');
+    expect(record.player).toBe(2);
+    expect(record.destroyed).toEqual({ col: 3, row: 0 });
+    expect(record.rest).toBeNull();
+    // The disc is gone and the shooter placed nothing of their own.
+    expect(cellAt(next.board, 3, 0)).toBe(0);
+    expect(next.board.every((cell) => cell === 0)).toBe(true);
+    // Demolition is not a free swing.
+    expect(next.turn).toBe(state.turn + 1);
     expect(next.current).toBe(1);
+  });
+
+  test('the stack above an exploded disc drops one slot', () => {
+    // Column 3 from the bottom: P1, P2, P1. Player two blasts the bottom one.
+    let board = setCell(newMatch().board, 3, 0, 1);
+    board = setCell(board, 3, 1, 2);
+    board = setCell(board, 3, 2, 1);
+    const state: MatchState = { ...newMatch(), board, current: 2 };
+
+    const { state: next, record } = applyShot(state, shotAtCell(board, 3, 0));
+    expect(record.outcome).toBe('explode');
+    expect(cellAt(next.board, 3, 0)).toBe(2);
+    expect(cellAt(next.board, 3, 1)).toBe(1);
+    expect(cellAt(next.board, 3, 2)).toBe(0);
   });
 
   test('a short shot also forfeits the turn', () => {

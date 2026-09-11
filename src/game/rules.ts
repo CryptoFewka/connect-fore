@@ -90,6 +90,34 @@ export function setCell(board: Board, col: number, row: number, cell: Cell): Boa
   return next;
 }
 
+/**
+ * Blow a disc out of the middle of a column.
+ *
+ * Everything stacked above it drops one slot into the gap, which is the only
+ * way a disc ever moves after it has come to rest. Returns the cells that
+ * shifted, so the renderer can animate the collapse instead of the board just
+ * changing between frames.
+ */
+export function explodeDisc(
+  board: Board,
+  col: number,
+  row: number,
+): { board: Board; fell: readonly CellRef[] } | null {
+  if (!inBounds(col, row) || cellAt(board, col, row) === 0) return null;
+
+  const next = board.slice();
+  const fell: CellRef[] = [];
+  const top = columnHeight(board, col);
+
+  for (let r = row; r < top - 1; r++) {
+    next[indexOf(col, r)] = cellAt(board, col, r + 1);
+    fell.push({ col, row: r + 1 });
+  }
+  next[indexOf(col, top - 1)] = 0;
+
+  return { board: next, fell };
+}
+
 const DIRECTIONS: readonly (readonly [number, number])[] = [
   [1, 0], // horizontal
   [0, 1], // vertical

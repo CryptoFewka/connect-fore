@@ -25,6 +25,11 @@ export interface MeterView {
   power: number;
   /** -1..1 marker offset; 0 is the sweet spot. */
   accuracy: number;
+  /**
+   * Half-width, in accuracy units, of the band that counts as a dead-straight
+   * strike. Drawn as a zone on the bar so the player can see what to aim for.
+   */
+  perfect: number;
   /** 0..1 position of the sweeping cursor. */
   cursor: number;
 }
@@ -65,6 +70,18 @@ export interface RenderFrame {
   camera: CameraShot;
   /** A disc mid-fall down a column, positioned by world-space `y`. */
   fallingDisc: { player: Player; col: number; y: number } | null;
+  /**
+   * A disc being destroyed, `t` running 0 to 1. The cell is drawn empty and a
+   * burst plays in its place.
+   */
+  explosion: { col: number; row: number; t: number } | null;
+  /**
+   * The stack above a destroyed disc sliding into the gap: every disc in `col`
+   * above `aboveRow` is drawn `offset` cells lower (0 to 1). During the slide
+   * `board` still holds the *pre*-explosion arrangement, so the discs being
+   * animated are the ones that actually moved.
+   */
+  collapse: { col: number; aboveRow: number; offset: number } | null;
   /** Flash the four winning discs. */
   highlight: WinLine | null;
   /** 0..1 screen shake, ignored under `prefers-reduced-motion`. */

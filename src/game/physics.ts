@@ -247,6 +247,7 @@ export function runTrajectory(board: Board, raw: ShotParams): ShotResult {
   const spinAccel = COURSE.spinAccel * params.accuracy;
 
   let entry: CellRef | null = null;
+  let struck: CellRef | null = null;
   let impactStep = -1;
   let threaded = false;
   let bounced = false;
@@ -270,6 +271,10 @@ export function runTrajectory(board: Board, raw: ShotParams): ShotResult {
           spinning = false;
         } else if (contact?.kind === 'bounce') {
           bounced = true;
+          // Null when it caught the frame rather than a disc.
+          struck = contact.cell !== null && cellAt(board, contact.cell.col, contact.cell.row) !== 0
+            ? contact.cell
+            : null;
           impactStep = step;
           spinning = false;
           // Rewind to the face and kick back out of the board.
@@ -306,6 +311,7 @@ export function runTrajectory(board: Board, raw: ShotParams): ShotResult {
   return {
     outcome,
     entry: threaded ? entry : null,
+    struck,
     points,
     impactStep,
     steps,

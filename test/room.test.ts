@@ -63,7 +63,15 @@ const stubEngine: MatchEngine = {
     }
 
     const wins = outcome === 'thread' && params.accuracy === 1;
-    const record = { turn: state.turn, player: state.current, params, outcome, entry: rest, rest };
+    const record = {
+      turn: state.turn,
+      player: state.current,
+      params,
+      outcome,
+      entry: rest,
+      rest,
+      destroyed: null,
+    };
 
     return {
       record,

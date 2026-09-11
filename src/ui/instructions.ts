@@ -16,12 +16,12 @@ export type ControlScheme = 'touch' | 'keys';
 const RULES: readonly string[] = [
   '',
   'THE SHOT:',
-  '1 LINE UP THE AIM',
-  '2 STOP THE POWER BAR',
-  '3 STOP ON THE SWEET SPOT',
+  '1 AIM   2 POWER   3 SWEET SPOT',
   '',
   'THREAD A GAP TO DROP A DISC.',
   'MISS AND YOU LOSE THE TURN.',
+  'BLAST A RIVAL DISC AND THEIR',
+  'STACK FALLS INTO THE GAP.',
   'FOUR IN A ROW WINS.',
 ];
 

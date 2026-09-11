@@ -108,6 +108,8 @@ const frame: RenderFrame = {
   aim: null,
   camera: state.shot,
   fallingDisc: null,
+  explosion: null,
+  collapse: null,
   highlight: null,
   shake: 0,
   hud: {
@@ -119,7 +121,7 @@ const frame: RenderFrame = {
       { name: 'PLAYER 1', player: 1, score: 2, active: true, connected: true },
       { name: 'BIRDIE', player: 2, score: 1, active: false, connected: true },
     ],
-    meter: { phase: 'power', power: 0.62, accuracy: 0, cursor: 0.62 },
+    meter: { phase: 'power', power: 0.62, accuracy: 0, perfect: 0.25, cursor: 0.62 },
     roomCode: 'FORE42',
     hint: 'A: SET POWER   B: BACK',
     menu: null,
