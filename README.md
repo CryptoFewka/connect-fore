@@ -19,6 +19,16 @@ ones near the top — right when the game is at its most tense.
 Play against a friend on the same screen, against a simulated opponent, or online
 by sending someone a challenge link.
 
+New to it? **TUTORIAL** walks you through the shot a step at a time and won't move
+on until you've actually done each part, then leaves you loose on the **DRIVING
+RANGE** — which you can also go straight to. The range is yours alone: nobody
+takes a turn against you, you just keep swinging. There is still a board to fill,
+and once you have a few pucks down a rival puck drops in every fourth shot you
+thread, landing on the win you were lining up so you have to find another line.
+It can build a three you need to answer, but it is never allowed to make four —
+the range is somewhere to practise, not a match you can lose. Get four in a row
+and the board clears so you can keep going.
+
 ## How to play
 
 | | Keyboard | Touch |

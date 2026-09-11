@@ -21,8 +21,8 @@ const RULES: readonly string[] = [
   'THREAD A GAP TO DROP A DISC.',
   'MISS AND YOU LOSE THE TURN.',
   'BLAST A RIVAL DISC AND THEIR',
-  'STACK FALLS INTO THE GAP.',
-  'FOUR IN A ROW WINS.',
+  'STACK FALLS IN. FOUR WINS.',
+  'NEW? TRY THE TUTORIAL.',
 ];
 
 const KEYS: readonly string[] = [
