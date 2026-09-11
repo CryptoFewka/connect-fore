@@ -259,6 +259,16 @@ export function createSession(options: SessionOptions): Session {
       if (meter.commit()) commitShot();
       else audio.sfx('menu-select');
     }
+
+    // The accuracy cursor can run off the end of its travel on its own, locking
+    // a full hook. Nothing else fires the shot in that case, so a player who
+    // hesitated would be left staring at a dead meter with no way to take a
+    // turn ever again. Let the bad shot go.
+    if (meter.phase === 'locked' && phase !== 'swing') {
+      commitShot();
+      return;
+    }
+
     phase = meter.phase === 'locked' ? phase : meter.phase;
   }
 

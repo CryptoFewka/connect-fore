@@ -77,6 +77,15 @@ function boot(): void {
     { id: 'join', label: 'ENTER A CODE' },
   ] as const);
   const codePicker: CodePicker = createCodePicker();
+  /**
+   * Guards the way out of a live match. Back is easy to hit by accident on a
+   * touchscreen, and losing a game in progress to a stray gesture is not a
+   * mistake worth letting people make. Defaults to staying put.
+   */
+  const quitMenu = createMenu([
+    { id: 'stay', label: 'KEEP PLAYING' },
+    { id: 'quit', label: 'QUIT MATCH' },
+  ] as const);
 
   let screen: Screen = 'title';
   let session: Session | null = null;
@@ -89,6 +98,7 @@ function boot(): void {
   let bannerTimer = 0;
   const fatal: string | null = null;
   let started = false;
+  let confirmingQuit = false;
   /** Which control scheme the instructions screen is showing. */
   let helpScheme: ControlScheme = 'keys';
 
@@ -200,6 +210,7 @@ function boot(): void {
   }
 
   function leaveMatch(): void {
+    confirmingQuit = false;
     connection?.close();
     connection = null;
     session = null;
@@ -329,6 +340,22 @@ function boot(): void {
 
   function updatePlaying(dt: number): void {
     if (!session) return;
+
+    // The prompt is modal: the match freezes underneath it rather than the
+    // meter sweeping on behind a dialog nobody meant to open.
+    if (confirmingQuit) {
+      const choice = quitMenu.update(input, beep);
+      if (choice === 'quit') {
+        select();
+        confirmingQuit = false;
+        leaveMatch();
+      } else if (choice === 'stay' || choice === '@back') {
+        select();
+        confirmingQuit = false;
+      }
+      return;
+    }
+
     session.update(dt, input);
 
     if (session.phase === 'over' && input.pressed('select')) {
@@ -341,7 +368,11 @@ function boot(): void {
         audio.music('play');
       }
     }
-    if (input.pressed('cancel')) leaveMatch();
+    if (input.pressed('cancel')) {
+      confirmingQuit = true;
+      quitMenu.reset(0);
+      beep();
+    }
   }
 
   // -- frame building -------------------------------------------------------
@@ -437,6 +468,18 @@ function boot(): void {
           session?.buildFrame(time, {
             roomCode,
             ...(banner ? { message: banner } : {}),
+            ...(confirmingQuit
+              ? {
+                  // The title band, not the message banner: the banner sits at
+                  // the same height as the menu box and the two collide.
+                  title: 'QUIT THE MATCH?',
+                  message: null,
+                  menu: { items: quitMenu.labels, index: quitMenu.index },
+                  // The meter would only invite a mistimed tap at the dialog.
+                  meter: null,
+                  hint: null,
+                }
+              : {}),
           }) ?? menuFrame(time, {})
         );
 
@@ -451,6 +494,7 @@ function boot(): void {
   // harness, and handy for poking at a live match from the browser console.
   (window as unknown as { connectFore: () => unknown }).connectFore = () => ({
     screen,
+    quitPrompt: confirmingQuit,
     phase: session?.phase ?? null,
     turn: session?.state.turn ?? null,
     current: session?.state.current ?? null,
@@ -487,7 +531,7 @@ function boot(): void {
     // while lining up, nothing at all once the meter is running, and menu
     // navigation everywhere else.
     input.setDragMode(
-      screen !== 'playing' || !session || session.phase === 'over'
+      confirmingQuit || screen !== 'playing' || !session || session.phase === 'over'
         ? 'gesture'
         : session.phase === 'aim'
           ? 'aim'
