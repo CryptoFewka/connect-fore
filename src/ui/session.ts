@@ -16,6 +16,7 @@ import { createRng } from '../game/rng';
 import type { AudioEngine } from '../audio/api';
 import type { CameraShot, HudState, RenderFrame } from '../render/api';
 import { createMeter, ACCURACY_RANGE } from './meter';
+import type { MeterOptions } from './meter';
 import type { InputState } from './input';
 import { prefersReducedMotion } from './settings';
 
@@ -51,6 +52,9 @@ const SETTLE_TIME = 1.6;
 const THINK_TIME = 0.8;
 const DROP_SPEED = 7.5; // world units per second
 const FLIGHT_TAIL_STEPS = 72; // keep rolling briefly after impact, then cut
+/** Radians of aim per full canvas-width drag. Tuned for a thumb, not a mouse. */
+const DRAG_YAW = 0.9;
+const DRAG_LOFT = 1.1;
 
 interface PendingShot {
   record: ShotRecord;
@@ -64,6 +68,8 @@ export interface Session {
   readonly phase: TurnPhase;
   /** Seat whose shot is being set up or played. */
   readonly shooter: Player;
+  /** Where the meter is currently pointed. */
+  readonly aim: { yaw: number; loft: number };
   update(dt: number, input: InputState): void;
   buildFrame(time: number, hud: Partial<HudState>): RenderFrame;
   /** Online: feed an authoritative resolution in. */
@@ -104,6 +110,7 @@ export function createSession(options: SessionOptions): Session {
   let lastDetent = -1;
   let shake = 0;
   let aiPlan: ShotParams | null = null;
+  let touch = false;
 
   const ball: { x: number; y: number; z: number; visible: boolean } = {
     x: COURSE.tee.x,
@@ -111,6 +118,13 @@ export function createSession(options: SessionOptions): Session {
     z: COURSE.tee.z,
     visible: true,
   };
+
+  /**
+   * The aim each seat left the meter on. Kept per seat so two players sharing a
+   * screen don't fight over one setting, and so the CPU lining up its own shot
+   * never disturbs yours.
+   */
+  const lastAim: Partial<Record<Player, MeterOptions>> = {};
 
   const isLocal = (seat: Player): boolean => seats.local.includes(seat);
   const isAi = (seat: Player): boolean => options.ai?.seat === seat;
@@ -121,7 +135,7 @@ export function createSession(options: SessionOptions): Session {
     message = null;
     lastDetent = -1;
     aiPlan = null;
-    meter.reset();
+    meter.reset(lastAim[state.current]);
     ball.x = COURSE.tee.x;
     ball.y = COURSE.tee.y;
     ball.z = COURSE.tee.z;
@@ -160,6 +174,7 @@ export function createSession(options: SessionOptions): Session {
 
   function commitShot(): void {
     const params = meter.params();
+    lastAim[state.current] = { yaw: params.yaw, loft: params.loft };
     audio.sfx('meter-lock');
     phase = 'swing';
     timer = SWING_TIME;
@@ -211,12 +226,21 @@ export function createSession(options: SessionOptions): Session {
 
   function updateMeterPhases(dt: number, input: InputState): void {
     meter.update(dt, input.axisX, input.axisY);
+    if (meter.phase === 'aim') {
+      meter.nudge(input.dragDeltaX * DRAG_YAW, -input.dragDeltaY * DRAG_LOFT);
+    }
+
     const detent = meter.detent;
     if ((meter.phase === 'power' || meter.phase === 'accuracy') && detent !== lastDetent) {
       lastDetent = detent;
       if (detent % 2 === 0) audio.sfx('meter-tick');
     }
-    if (input.pressed('confirm')) {
+
+    // Aiming commits on a completed tap, so a drag can steer without locking the
+    // shot the instant a finger lands. Power and accuracy commit on the way
+    // down, because there the timing is the whole game.
+    const commit = meter.phase === 'aim' ? input.pressed('select') : input.pressed('confirm');
+    if (commit) {
       if (meter.commit()) commitShot();
       else audio.sfx('menu-select');
     }
@@ -284,9 +308,13 @@ export function createSession(options: SessionOptions): Session {
     get shooter(): Player {
       return state.current;
     },
+    get aim(): { yaw: number; loft: number } {
+      return { yaw: meter.yaw, loft: meter.loft };
+    },
 
     update(dt: number, input: InputState): void {
       shake = Math.max(0, shake - dt * 2);
+      if (input.isTouch) touch = true;
 
       switch (phase) {
         case 'aim':
@@ -394,7 +422,8 @@ export function createSession(options: SessionOptions): Session {
           })),
           meter: showMeter ? meter.view() : null,
           roomCode: null,
-          hint: hintFor(phase, isLocal(active) && !isAi(active)),
+          hint: hintFor(phase, isLocal(active) && !isAi(active), touch),
+          panel: null,
           menu: null,
           ...hud,
         },
@@ -417,20 +446,23 @@ export function createSession(options: SessionOptions): Session {
 
     reset(next?: MatchState): void {
       state = next ?? newMatch();
+      // A brand new match starts everyone back at the default aim.
+      delete lastAim[1];
+      delete lastAim[2];
       shake = 0;
       beginTurn();
     },
   };
 }
 
-function hintFor(phase: TurnPhase, yours: boolean): string | null {
+function hintFor(phase: TurnPhase, yours: boolean, touch: boolean): string | null {
   switch (phase) {
     case 'aim':
-      return yours ? 'ARROWS AIM   FIRE TO SET' : null;
+      return yours ? (touch ? 'DRAG TO AIM   TAP TO SET' : 'ARROWS AIM   FIRE TO SET') : null;
     case 'power':
-      return yours ? 'FIRE TO SET POWER' : null;
+      return yours ? (touch ? 'TAP TO SET POWER' : 'FIRE TO SET POWER') : null;
     case 'accuracy':
-      return yours ? 'FIRE ON THE SWEET SPOT' : null;
+      return yours ? (touch ? 'TAP ON THE SWEET SPOT' : 'FIRE ON THE SWEET SPOT') : null;
     case 'waiting':
       return 'OPPONENT IS AWAY';
     case 'thinking':

@@ -30,8 +30,12 @@ const AIM_LOFT_RATE = 0.32;
 const POWER_SPEED = 0.62; // meter fractions per second
 const ACCURACY_SPEED = 1.1;
 const MIN_POWER = 0.08;
-/** A flat default: the power windows are widest down here. */
-export const DEFAULT_LOFT = 0.3;
+/**
+ * Where a fresh match starts you: about 32 degrees of elevation. Lofted shots
+ * have tighter power windows than flat ones, but the aim you set is kept from
+ * one shot to the next, so this is only ever a starting point.
+ */
+export const DEFAULT_LOFT = 0.5618;
 
 export interface MeterOptions {
   yaw?: number;
@@ -45,6 +49,12 @@ export interface Meter {
   /** Rises through 20 detents across the bar; the session ticks a sound on each. */
   readonly detent: number;
   update(dt: number, axisX: number, axisY: number): void;
+  /**
+   * Move the aim directly, in radians. A dragging finger steers the shot
+   * one-to-one rather than through the ramped key rate, so the aim tracks the
+   * thumb instead of drifting after it.
+   */
+  nudge(dYaw: number, dLoft: number): void;
   /** Advances to the next phase. Returns true once the shot is fully specified. */
   commit(): boolean;
   view(): MeterView;
@@ -108,6 +118,12 @@ export function createMeter(options: MeterOptions = {}): Meter {
           phase = 'locked';
         }
       }
+    },
+
+    nudge(dYaw: number, dLoft: number): void {
+      if (phase !== 'aim') return;
+      yaw = clamp(yaw + dYaw, -COURSE.maxYaw, COURSE.maxYaw);
+      loft = clamp(loft + dLoft, COURSE.minLoft, COURSE.maxLoft);
     },
 
     commit(): boolean {

@@ -241,6 +241,34 @@ export function createHud(): HudLayer {
       font.drawCentered(ctx, hud.subtitle.toUpperCase(), HUD_W / 2, 60, INK.blue);
     }
 
+    const panel = hud.panel;
+    if (panel && panel.lines.length > 0) {
+      const lines = panel.lines.map((line) => line.toUpperCase());
+      let widest = 0;
+      for (const line of lines) widest = Math.max(widest, font.width(line));
+      const boxW = Math.min(HUD_W - 8, widest + 20);
+      const boxX = Math.round((HUD_W - boxW) / 2);
+      const step = 9;
+      // The title band ends at 87; the hint bar starts at HUD_H - 16.
+      const top = 94;
+      // The hint bar starts at HUD_H - 16; stop one pixel short of it.
+      const room = Math.floor((HUD_H - 17 - (top - 6) - 9) / step);
+      const shown = lines.slice(0, Math.max(0, room));
+      box(boxX, top - 6, boxW, shown.length * step + 9, INK.white, INK.blueNight);
+      for (let i = 0; i < shown.length; i += 1) {
+        const line = shown[i] ?? '';
+        // A blank line is a spacer, and a line ending in ':' is a heading.
+        const heading = line.endsWith(':');
+        font.draw(
+          ctx,
+          heading ? line.slice(0, -1) : line,
+          boxX + 10,
+          top + i * step,
+          heading ? INK.gold : INK.white,
+        );
+      }
+    }
+
     if (hud.message) {
       const message = hud.message.toUpperCase();
       const scale = font.width(message, 2) <= HUD_W - 24 ? 2 : 1;

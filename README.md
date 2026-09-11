@@ -18,17 +18,23 @@ by sending someone a challenge link.
 
 | | Keyboard | Touch |
 |---|---|---|
+| Aim | Arrows / WASD | Drag the screen |
 | Move the cursor | Arrows / WASD | Swipe up or down |
 | Commit | Enter, Space or Z | Tap |
-| Back | Esc, Backspace or X | Swipe left |
+| Back | Esc, Backspace or X | Swipe left, or hold in place while aiming |
 | Mute | M | — |
+
+All of this is in the game too, under **HOW TO PLAY** — and that screen flips
+between the touch and keyboard listings, because a tablet with a keyboard
+attached makes any single guess the wrong one.
 
 A shot takes three commits, the way an NES golf meter always has:
 
-1. **Aim** — swing the yaw left and right, and set how much loft you want. A tap
-   nudges finely; hold to sweep across the board. Flat shots have far more
+1. **Aim** — swing the yaw left and right, and set how much loft you want. On a
+   keyboard a tap nudges finely and a hold sweeps across the board; on a
+   touchscreen the shot simply follows your finger. Flat shots have far more
    forgiving power windows than lofted ones, but only a lofted ball reaches the
-   high cells.
+   high cells. Your aim stays where you left it between shots.
 2. **Power** — a cursor climbs the meter. Stop it in the window for the row you're
    after.
 3. **Accuracy** — the cursor falls back through a sweet spot at the centre. Commit
