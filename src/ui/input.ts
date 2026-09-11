@@ -169,8 +169,12 @@ export function createInput(target: HTMLElement): InputState {
   const SWIPE_MS = 600;
   /** Movement below this is tap jitter, not aiming. */
   const DEAD_ZONE = 0.012;
-  /** Held this long in place, a touch means "get me out of here". */
-  const HOLD_MS = 550;
+  /**
+   * Held this long in place, a touch means "get me out of here". It has to sit
+   * well clear of a slow tap: at 550ms an unhurried thumb was reading as Back
+   * and quitting matches.
+   */
+  const HOLD_MS = 900;
 
   const onPointerUp = (e: PointerEvent): void => {
     try {

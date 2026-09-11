@@ -221,6 +221,7 @@ describe('messages', () => {
         outcome: 'thread',
         entry: { col: 3, row: 0 },
         rest: { col: 3, row: 0 },
+        destroyed: null,
       },
       state: authoritative,
       score: [1, 0],

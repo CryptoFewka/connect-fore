@@ -46,7 +46,7 @@ export const COURSE = {
   /** Lateral acceleration per unit of accuracy error (the hook/slice curve). */
   spinAccel: 3.6,
 
-  ballRadius: 0.13,
+  ballRadius: 0.08,
   /** Ball rests here at address. The board sits at z = 0, facing -z. */
   tee: { x: 0, y: 0.16, z: 14 },
 
@@ -104,8 +104,13 @@ export interface ShotParams {
 export type ShotOutcome =
   /** Passed cleanly through an empty aperture — a piece is placed. */
   | 'thread'
-  /** Hit the frame or a placed disc — turn forfeited. */
+  /** Hit the frame or one of your own discs — turn forfeited. */
   | 'bounce'
+  /**
+   * Struck an opponent's disc, destroying it and collapsing the column onto
+   * the gap. No piece is placed, so the turn is forfeited all the same.
+   */
+  | 'explode'
   /** Never reached the board — turn forfeited. */
   | 'short'
   /** Left the play area without touching the board — turn forfeited. */
@@ -115,6 +120,13 @@ export interface ShotResult {
   readonly outcome: ShotOutcome;
   /** Aperture the ball passed through, when `outcome === 'thread'`. */
   readonly entry: CellRef | null;
+  /**
+   * The occupied cell the ball struck, when it bounced off a disc rather than
+   * the frame. Whose disc it is decides bounce versus explosion, and only the
+   * match knows whose turn it is - so physics reports the cell and stays out
+   * of it.
+   */
+  readonly struck: CellRef | null;
   /** Flat `x, y, z` triples, one per simulated step (index 0 = tee). */
   readonly points: readonly number[];
   /** Step index of board contact (thread or bounce), or -1. */
@@ -137,6 +149,8 @@ export interface ShotRecord {
   readonly entry: CellRef | null;
   /** Cell the disc settled in after falling, when a piece was placed. */
   readonly rest: CellRef | null;
+  /** The cell destroyed, when `outcome === 'explode'`. */
+  readonly destroyed: CellRef | null;
 }
 
 export interface MatchState {

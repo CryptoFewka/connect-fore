@@ -380,10 +380,16 @@ export interface ErrorProfile {
  * easy ~40%, normal ~20%, hard ~8%. The aperture only tolerates
  * `APERTURE_TOLERANCE` (0.26) of error, so these sigmas are small numbers.
  */
+/**
+ * Tuned empirically against the live geometry, not guessed. These are sigmas in
+ * world units at the board plane, so they have to be re-measured whenever the
+ * aperture tolerance moves - shrinking the ball makes the AI a better shot for
+ * free, which is exactly how "easy" drifted into being deadly.
+ */
 export const ERROR_PROFILES: Readonly<Record<Difficulty, ErrorProfile>> = {
-  easy: { aimSigma: 0.235, accuracySigma: 0.062 },
-  normal: { aimSigma: 0.14, accuracySigma: 0.03 },
-  hard: { aimSigma: 0.111, accuracySigma: 0.015 },
+  easy: { aimSigma: 0.5, accuracySigma: 0.13 },
+  normal: { aimSigma: 0.18, accuracySigma: 0.047 },
+  hard: { aimSigma: 0.14, accuracySigma: 0.036 },
 };
 
 /** Lowest empty cell of a column — the aperture a disc can be dropped through. */

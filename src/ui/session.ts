@@ -27,6 +27,7 @@ export type TurnPhase =
   | 'swing'
   | 'flight'
   | 'drop'
+  | 'explode'
   | 'settle'
   | 'thinking'
   | 'waiting'
@@ -51,6 +52,10 @@ const SWING_TIME = 0.32;
 const SETTLE_TIME = 1.6;
 const THINK_TIME = 0.8;
 const DROP_SPEED = 7.5; // world units per second
+/** Seconds the burst plays before the stack starts sliding into the gap. */
+const BLAST_TIME = 0.45;
+/** Seconds the collapse itself takes. */
+const COLLAPSE_TIME = 0.3;
 const FLIGHT_TAIL_STEPS = 72; // keep rolling briefly after impact, then cut
 /** Radians of aim per full canvas-width drag. Tuned for a thumb, not a mouse. */
 const DRAG_YAW = 0.9;
@@ -106,6 +111,10 @@ export function createSession(options: SessionOptions): Session {
   let flightStep = 0;
   let dropY = 0;
   let dropTargetY = 0;
+  /** Board as it stood before the blast, held so the slide can be animated. */
+  let preBlastBoard: Board | null = null;
+  let blastT = 0;
+  let collapseT = 0;
   let message: string | null = null;
   let lastDetent = -1;
   let shake = 0;
@@ -132,6 +141,9 @@ export function createSession(options: SessionOptions): Session {
   function beginTurn(): void {
     pending = null;
     flightStep = 0;
+    preBlastBoard = null;
+    blastT = 0;
+    collapseT = 0;
     message = null;
     lastDetent = -1;
     aiPlan = null;
@@ -202,6 +214,9 @@ export function createSession(options: SessionOptions): Session {
       audio.sfx('thud');
       message = 'OFF THE BOARD - TURN LOST';
       shake = reduceMotion ? 0 : 0.7;
+    } else if (record.outcome === 'explode') {
+      // The blast already played at the start of the phase; this is the caption.
+      message = 'DIRECT HIT - STACK DOWN!';
     } else {
       message = record.outcome === 'short' ? 'SHORT - TURN LOST' : 'WIDE - TURN LOST';
     }
@@ -244,6 +259,16 @@ export function createSession(options: SessionOptions): Session {
       if (meter.commit()) commitShot();
       else audio.sfx('menu-select');
     }
+
+    // The accuracy cursor can run off the end of its travel on its own, locking
+    // a full hook. Nothing else fires the shot in that case, so a player who
+    // hesitated would be left staring at a dead meter with no way to take a
+    // turn ever again. Let the bad shot go.
+    if (meter.phase === 'locked' && phase !== 'swing') {
+      commitShot();
+      return;
+    }
+
     phase = meter.phase === 'locked' ? phase : meter.phase;
   }
 
@@ -283,10 +308,28 @@ export function createSession(options: SessionOptions): Session {
         dropTargetY = cellCenter(record.rest.col, record.rest.row).y;
         audio.sfx('drop');
         phase = 'drop';
+      } else if (record.outcome === 'explode' && record.destroyed) {
+        // Hold the old board on screen so the stack can be seen to fall.
+        preBlastBoard = state.board;
+        blastT = 0;
+        collapseT = 0;
+        shake = reduceMotion ? 0 : 1;
+        audio.sfx('explode');
+        phase = 'explode';
       } else {
         finishShot();
       }
     }
+  }
+
+  function updateExplode(dt: number): void {
+    if (blastT < 1) {
+      blastT = Math.min(1, blastT + dt / BLAST_TIME);
+      return;
+    }
+    if (collapseT === 0) audio.sfx('clack');
+    collapseT = Math.min(1, collapseT + dt / COLLAPSE_TIME);
+    if (collapseT >= 1) finishShot();
   }
 
   function updateDrop(dt: number): void {
@@ -355,6 +398,10 @@ export function createSession(options: SessionOptions): Session {
           updateDrop(dt);
           break;
 
+        case 'explode':
+          updateExplode(dt);
+          break;
+
         case 'settle':
           timer -= dt;
           if (timer <= 0) {
@@ -396,14 +443,25 @@ export function createSession(options: SessionOptions): Session {
       const showMeter = aiming && phase !== 'swing';
       const active = state.current;
 
+      const blasting = phase === 'explode';
+      const destroyed = pending?.record.destroyed ?? null;
+
       return {
-        board: state.board,
-        ball: { ...ball, visible: ball.visible && phase !== 'drop' },
+        // Mid-blast the old arrangement stays on screen, so the discs the
+        // player watches slide are the ones that actually moved.
+        board: blasting && preBlastBoard ? preBlastBoard : state.board,
+        ball: { ...ball, visible: ball.visible && phase !== 'drop' && !blasting },
         aim: aiming ? { yaw: meter.yaw, loft: meter.loft } : null,
         camera,
         fallingDisc:
           phase === 'drop' && pending?.record.rest
             ? { player: pending.record.player, col: pending.record.rest.col, y: dropY }
+            : null,
+        explosion:
+          blasting && destroyed ? { col: destroyed.col, row: destroyed.row, t: blastT } : null,
+        collapse:
+          blasting && destroyed
+            ? { col: destroyed.col, aboveRow: destroyed.row, offset: collapseT }
             : null,
         highlight: state.status === 'won' ? state.winLine : null,
         shake,

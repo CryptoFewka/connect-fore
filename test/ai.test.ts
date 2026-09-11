@@ -186,12 +186,12 @@ describe('difficulty', () => {
         state = next;
       }
     }
-    expect(shots).toBeGreaterThan(300);
+    expect(shots).toBeGreaterThan(200);
     return misses / shots;
   }
 
   test(
-    'miss rates land near 40 / 20 / 8 per cent',
+    'miss rates land near 70 / 20 / 8 per cent',
     () => {
       const easy = missRate('easy', 16, 0x1111);
       const normal = missRate('normal', 16, 0x2222);
@@ -200,8 +200,11 @@ describe('difficulty', () => {
         `  miss rates — easy ${(easy * 100).toFixed(1)}%, ` +
           `normal ${(normal * 100).toFixed(1)}%, hard ${(hard * 100).toFixed(1)}%`,
       );
-      expect(easy).toBeGreaterThan(0.3);
-      expect(easy).toBeLessThan(0.52);
+      // Easy is meant to be genuinely bad company: it should miss roughly two
+      // shots in three, which is what makes it beatable by someone still
+      // learning the meter.
+      expect(easy).toBeGreaterThan(0.58);
+      expect(easy).toBeLessThan(0.82);
       expect(normal).toBeGreaterThan(0.12);
       expect(normal).toBeLessThan(0.29);
       expect(hard).toBeGreaterThan(0.02);

@@ -19,6 +19,13 @@ export type MeterPhase = 'aim' | 'power' | 'accuracy' | 'locked';
 export const ACCURACY_RANGE = 0.35;
 
 /**
+ * Stop the cursor within this fraction of the sweet spot and the strike is
+ * *perfect* - dead straight, no curve at all - rather than merely nearly
+ * straight. It is a band you can see and aim for, not a hairline to nick.
+ */
+export const PERFECT_BAND = 0.25;
+
+/**
  * Aim rate ramps: threading an aperture needs roughly a degree of yaw, so a
  * tap has to be finer than one aperture width, while a long hold still has to
  * cross the whole board in a sensible time.
@@ -27,8 +34,8 @@ const AIM_YAW_RATE = 0.11; // radians per second from a standing start
 const AIM_YAW_RATE_MAX = 0.5;
 const AIM_RAMP_TIME = 0.7; // seconds of continuous hold to reach full rate
 const AIM_LOFT_RATE = 0.32;
-const POWER_SPEED = 0.62; // meter fractions per second
-const ACCURACY_SPEED = 1.1;
+const POWER_SPEED = 0.4; // meter fractions per second
+const ACCURACY_SPEED = 0.8;
 const MIN_POWER = 0.08;
 /**
  * Where a fresh match starts you: about 32 degrees of elevation. Lofted shots
@@ -136,10 +143,12 @@ export function createMeter(options: MeterOptions = {}): Meter {
           power = Math.max(MIN_POWER, cursor);
           phase = 'accuracy';
           return false;
-        case 'accuracy':
-          accuracy = clamp(cursor / ACCURACY_RANGE, -1, 1);
+        case 'accuracy': {
+          const raw = clamp(cursor / ACCURACY_RANGE, -1, 1);
+          accuracy = Math.abs(raw) <= PERFECT_BAND ? 0 : raw;
           phase = 'locked';
           return true;
+        }
         case 'locked':
           return true;
       }
@@ -150,6 +159,7 @@ export function createMeter(options: MeterOptions = {}): Meter {
         phase,
         power: phase === 'power' ? cursor : power,
         accuracy: phase === 'accuracy' ? cursor / ACCURACY_RANGE : accuracy,
+        perfect: PERFECT_BAND,
         cursor: phase === 'accuracy' ? cursor : phase === 'power' ? cursor : 0,
       };
     },

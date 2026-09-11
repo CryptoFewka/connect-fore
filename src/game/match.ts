@@ -6,7 +6,7 @@
  * an aperture forfeits the turn — the same player does *not* get another swing.
  */
 import type { CellRef, MatchState, Player, ShotParams, ShotRecord } from './types';
-import { emptyBoard, dropPiece, findWin, isDraw } from './rules';
+import { cellAt, emptyBoard, dropPiece, explodeDisc, findWin, isDraw } from './rules';
 import { clampShotParams, simulateShot } from './shot';
 
 export function otherPlayer(player: Player): Player {
@@ -63,31 +63,51 @@ export function applyShot(
         outcome: result.outcome,
         entry: result.entry,
         rest: null,
+        destroyed: null,
       },
     };
   }
 
   let board = state.board;
   let rest: CellRef | null = null;
+  let destroyed: CellRef | null = null;
+  let outcome = result.outcome;
 
-  if (result.outcome === 'thread' && result.entry) {
+  if (outcome === 'thread' && result.entry) {
     const dropped = dropPiece(board, result.entry.col, player);
     if (dropped) {
       board = dropped.board;
       rest = dropped.rest;
     }
+  } else if (outcome === 'bounce' && result.struck) {
+    // Ricocheting off your own disc is just a bad shot. Hitting the opponent's
+    // blows it apart and drops their stack into the hole.
+    const owner = cellAt(board, result.struck.col, result.struck.row);
+    if (owner !== 0 && owner !== player) {
+      const blast = explodeDisc(board, result.struck.col, result.struck.row);
+      if (blast) {
+        board = blast.board;
+        destroyed = result.struck;
+        outcome = 'explode';
+      }
+    }
   }
 
-  const win = rest ? findWin(board) : null;
-  const drawn = !win && rest ? isDraw(board) : false;
+  // A collapse can complete a line for *either* player - including the one
+  // whose disc was just destroyed - so the board is asked who won, never the
+  // shooter assumed.
+  const changed = rest !== null || destroyed !== null;
+  const win = changed ? findWin(board) : null;
+  const drawn = !win && changed ? isDraw(board) : false;
 
   const record: ShotRecord = {
     turn: state.turn,
     player,
     params: shot,
-    outcome: result.outcome,
+    outcome,
     entry: result.entry,
     rest,
+    destroyed,
   };
 
   return {

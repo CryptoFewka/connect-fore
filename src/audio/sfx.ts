@@ -175,6 +175,43 @@ const BANK: Record<SfxName, Voice> = {
     });
   },
 
+  // An opponent's disc is destroyed: a long noise sweep for the blast, with the
+  // triangle dropping out from under it so it lands in the chest.
+  explode: (apu, t, dest) => {
+    apu.noise({
+      time: t,
+      duration: 0.5,
+      rate: 9000,
+      rateTo: 400,
+      gain: 0.5,
+      env: { attack: 0.001, decay: 0.22, sustain: 0.35, release: 0.24 },
+      filter: { type: 'lowpass', freq: 5200, freqTo: 300, q: 1.2 },
+      dest,
+    });
+    apu.triangle({
+      time: t,
+      duration: 0.42,
+      freq: 190,
+      slideTo: 32,
+      slideTime: 0.4,
+      gain: 0.5,
+      env: { attack: 0.002, decay: 0.2, sustain: 0.3, release: 0.18 },
+      dest,
+    });
+    // A shard of the disc pinging away.
+    apu.pulse({
+      time: t + 0.04,
+      duration: 0.16,
+      freq: 880,
+      slideTo: 220,
+      slideTime: 0.15,
+      duty: 0.125,
+      gain: 0.16,
+      env: { attack: 0.001, decay: 0.08, sustain: 0.2, release: 0.06 },
+      dest,
+    });
+  },
+
   // Disc lands on the stack: short-mode LFSR gives it a plastic-on-plastic tick.
   clack: (apu, t, dest) => {
     apu.noise({

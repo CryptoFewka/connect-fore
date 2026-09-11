@@ -234,7 +234,14 @@ export function createRenderer(container: HTMLElement): Renderer {
     lastTime = frame.time;
 
     course.update(frame.time);
-    board.update(frame.board, frame.fallingDisc, frame.highlight, frame.time);
+    board.update(
+      frame.board,
+      frame.fallingDisc,
+      frame.explosion,
+      frame.collapse,
+      frame.highlight,
+      frame.time,
+    );
     ball.update(frame.ball, frame.aim, frame.time);
     rig.update(frame, dt, allowShake);
 

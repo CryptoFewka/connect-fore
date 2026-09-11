@@ -161,12 +161,19 @@ export function createHud(): HudLayer {
       }
     }
 
-    // Sweet spot: a pointer above the bar and a pale gate through it.
+    // Sweet spot. The band that counts as a dead-straight strike is drawn as a
+    // zone you can actually aim at, with the exact centre marked inside it - a
+    // hairline tick would say "nick this pixel", which is not the deal.
     const centre = METER_X + Math.round(METER_W / 2);
+    const halfBand = Math.max(2, Math.round((view.perfect / 2) * (METER_W - 2)));
+    if (showAccuracy || view.phase === 'accuracy') {
+      ctx.fillStyle = INK.greenDeep;
+      ctx.fillRect(centre - halfBand, METER_Y, halfBand * 2, METER_H);
+    }
     marker(centre, METER_Y - 7, INK.white, false);
     ctx.fillStyle = INK.cream;
-    ctx.fillRect(centre - 2, METER_Y, 1, METER_H);
-    ctx.fillRect(centre + 2, METER_Y, 1, METER_H);
+    ctx.fillRect(centre - halfBand, METER_Y, 1, METER_H);
+    ctx.fillRect(centre + halfBand, METER_Y, 1, METER_H);
     ctx.fillStyle = INK.white;
     ctx.fillRect(centre, METER_Y, 1, METER_H);
 
@@ -174,7 +181,7 @@ export function createHud(): HudLayer {
     if (showAccuracy) {
       const offset = Math.min(1, Math.max(-1, view.accuracy));
       const x = METER_X + Math.round((0.5 + offset * 0.5) * (METER_W - 2));
-      const ink = Math.abs(offset) < 0.12 ? INK.green : Math.abs(offset) < 0.4 ? INK.gold : INK.red;
+      const ink = Math.abs(offset) <= view.perfect ? INK.green : Math.abs(offset) < 0.5 ? INK.gold : INK.red;
       marker(x, METER_Y + METER_H + 3, ink, true);
       ctx.fillStyle = ink;
       ctx.fillRect(x, METER_Y + METER_H + 1, 1, 2);

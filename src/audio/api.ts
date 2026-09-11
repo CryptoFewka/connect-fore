@@ -11,6 +11,7 @@ export type SfxName =
   | 'swing'
   | 'thread'
   | 'thud'
+  | 'explode'
   | 'clack'
   | 'drop'
   | 'win'
