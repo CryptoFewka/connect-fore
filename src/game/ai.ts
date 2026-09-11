@@ -1,7 +1,7 @@
 /**
  * The simulated opponent.
  *
- * Two separate problems: *which column* (a normal Connect Four search) and
+ * Two separate problems: *which column* (a normal four in a row search) and
  * *how to hit it* (a numeric aim solve against the very same physics the player
  * is fighting). Difficulty only touches the second one — the AI always knows
  * what it wants, it just can't always pull the shot off.
@@ -33,7 +33,7 @@ import type { Rng } from './rng';
 // Column choice: negamax with alpha-beta
 // ---------------------------------------------------------------------------
 
-/** Centre-out, which is both the best Connect Four move order and good pruning. */
+/** Centre-out, which is both the best four in a row move order and good pruning. */
 export const CENTRE_ORDER: readonly number[] = [3, 2, 4, 1, 5, 0, 6];
 
 export const AI_DEPTH = 4;

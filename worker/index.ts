@@ -1,5 +1,5 @@
 /**
- * Connect Fore! edge entrypoint.
+ * Fore! edge entrypoint.
  *
  * `/api/room/:code` upgrades to a WebSocket held by the `GameRoom` Durable
  * Object for that code — `idFromName(code)` means the challenge URL alone is
@@ -7,6 +7,7 @@
  * game bundle.
  */
 import { isValidRoomCode, normalizeRoomCode, PROTOCOL_VERSION } from '../src/net/protocol';
+import { appleAppSiteAssociation, assetLinks } from './deep-links';
 import { GameRoom } from './room';
 
 export { GameRoom };
@@ -37,6 +38,14 @@ export default {
 
     if (url.pathname === '/api/health') {
       return Response.json({ ok: true, protocol: PROTOCOL_VERSION });
+    }
+
+    // Claimed by the native apps so a challenge link opens the game.
+    if (url.pathname === '/.well-known/apple-app-site-association') {
+      return appleAppSiteAssociation();
+    }
+    if (url.pathname === '/.well-known/assetlinks.json') {
+      return assetLinks();
     }
 
     return env.ASSETS.fetch(request);

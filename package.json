@@ -1,9 +1,9 @@
 {
-  "name": "connect-fore",
+  "name": "fore-golf",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Connect Fore! - NES-style 3D golf meets Connect Four",
+  "description": "Fore! - NES-style 3D golf meets four in a row",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,12 +12,23 @@
     "deploy": "bun run build && wrangler deploy",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "lint": "eslint .",
-    "test": "bun test"
+    "test": "bun test",
+    "build:app": "VITE_API_ORIGIN=${VITE_API_ORIGIN:-https://fore.automa.agency} vite build",
+    "cap:sync": "bun run build:app && cap sync",
+    "cap:ios": "bun run cap:sync && cap open ios",
+    "cap:android": "bun run cap:sync && cap open android"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/share": "^8.0.1",
     "three": "^0.180.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@cloudflare/workers-types": "^4.20250906.0",
     "@eslint/js": "^9.35.0",
     "@types/bun": "^1.2.21",

@@ -110,6 +110,8 @@ export interface PracticeOptions {
 
 export interface SessionOptions {
   audio: AudioEngine;
+  /** Physical feedback on impacts. A no-op in a browser. */
+  haptic?: (weight: 'light' | 'medium' | 'heavy') => void;
   seats: SessionSeats;
   /** Set for the driving range; absent for a real match. */
   practice?: PracticeOptions;
@@ -123,6 +125,7 @@ export interface SessionOptions {
 
 export function createSession(options: SessionOptions): Session {
   const { audio } = options;
+  const haptic = options.haptic ?? ((): void => {});
   const hooks = options.hooks ?? {};
   const rng = createRng(options.seed ?? 0x5eed1e);
   const meter = createMeter();
@@ -252,9 +255,11 @@ export function createSession(options: SessionOptions): Session {
 
     if (record.outcome === 'thread') {
       audio.sfx('thread');
+      haptic('light');
       message = 'THROUGH THE GAP!';
     } else if (record.outcome === 'bounce') {
       audio.sfx('thud');
+      haptic('medium');
       message = 'OFF THE BOARD - TURN LOST';
       shake = reduceMotion ? 0 : 0.7;
     } else if (record.outcome === 'explode') {
@@ -363,6 +368,7 @@ export function createSession(options: SessionOptions): Session {
         collapseT = 0;
         shake = reduceMotion ? 0 : 1;
         audio.sfx('explode');
+        haptic('heavy');
         phase = 'explode';
       } else {
         finishShot();

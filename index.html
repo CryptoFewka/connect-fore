@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#0b0f1a" />
-    <meta name="description" content="Connect Fore! - NES-style 3D golf meets Connect Four. Aim, pick your power, and thread the ball through a gap in the board." />
-    <title>Connect Fore!</title>
+    <meta name="description" content="Fore! - NES-style 3D golf meets four in a row. Aim, pick your power, and thread the ball through a gap in the board." />
+    <title>Fore! — Four in a Row Golf</title>
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
@@ -24,6 +24,20 @@
         display: grid;
         place-items: center;
         touch-action: none;
+        /* viewport-fit=cover puts the page under the notch and the home
+           indicator; keep the picture clear of both. */
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+                 env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+
+      /* In a WebView a long press otherwise raises the selection callout, and
+         the game's own press-and-hold gesture is swallowed by it. */
+      #app,
+      #app canvas {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
       }
       #app canvas {
         display: block;
@@ -44,7 +58,7 @@
   <body>
     <div id="app">
       <noscript>
-        <div id="fallback">Connect Fore! needs JavaScript and WebGL to run.</div>
+        <div id="fallback">Fore! needs JavaScript and WebGL to run.</div>
       </noscript>
     </div>
     <script type="module" src="/src/main.ts"></script>

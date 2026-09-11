@@ -92,16 +92,27 @@ export const SCENE = {
   leafLight: 0x287200,
   leafDark: 0x004000,
 
-  boardFace: 0x084cc4,
-  boardRim: 0x3032ec,
-  boardSide: 0x001e74,
-  boardPost: 0x084cc4,
-  boardBase: 0x001e74,
+  /**
+   * Deliberately not a blue board with red and amber discs. That combination
+   * is Hasbro's trade dress, and a store listing is where rights holders look.
+   * Slate frame, magenta and deep violet discs. The constraint is tighter than
+   * it looks: an empty cell shows sky at the top of the board and fairway at
+   * the bottom, so a disc has to hold against blue, green *and* the white golf
+   * ball. Bone read as the ball and teal vanished into the sky - both only
+   * showed up on screen. Magenta and violet clear all three, and are separated
+   * by brightness as well as hue. Each disc also carries an X or an O face, so
+   * colour is never the only thing telling the sides apart.
+   */
+  boardFace: 0x3c4458,
+  boardRim: 0x5c6478,
+  boardSide: 0x1c2030,
+  boardPost: 0x3c4458,
+  boardBase: 0x1c2030,
 
-  discOne: 0xe46858,
-  discOneDark: 0x982220,
-  discTwo: 0xd48820,
-  discTwoDark: 0x783c00,
+  discOne: 0xe058a8,
+  discOneDark: 0x901c5c,
+  discTwo: 0x7038c8,
+  discTwoDark: 0x3c1080,
   discFlash: 0xececec,
   /** Explosion shards: a white-hot instant, then cooling embers. */
   blastFlash: 0xfcfcfc,
@@ -158,7 +169,7 @@ export function createPixelTexture(
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Connect Fore!: 2D canvas is unavailable.');
+  if (!ctx) throw new Error('Fore!: 2D canvas is unavailable.');
   ctx.imageSmoothingEnabled = false;
   paint(ctx);
   const texture = new THREE.CanvasTexture(canvas);

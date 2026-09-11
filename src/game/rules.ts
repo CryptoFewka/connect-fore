@@ -1,5 +1,5 @@
 /**
- * Connect Four over the frozen `Board` contract.
+ * four in a row over the frozen `Board` contract.
  *
  * The board is a flat, readonly array of 42 cells indexed `row * COLS + col`
  * with **row 0 at the bottom**, so a disc that lands in a column occupies the

@@ -129,7 +129,7 @@ function buildAtlas(): HTMLCanvasElement {
   canvas.width = ATLAS_ORDER.length * GLYPH_W;
   canvas.height = GLYPH_H;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Connect Fore!: 2D canvas is unavailable.');
+  if (!ctx) throw new Error('Fore!: 2D canvas is unavailable.');
   ctx.fillStyle = '#ffffff';
   for (let i = 0; i < ATLAS_ORDER.length; i += 1) {
     const ch = ATLAS_ORDER[i] ?? ' ';
@@ -164,7 +164,7 @@ export function createFont(): BitmapFont {
     canvas.width = atlas.width;
     canvas.height = atlas.height;
     const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Connect Fore!: 2D canvas is unavailable.');
+    if (!ctx) throw new Error('Fore!: 2D canvas is unavailable.');
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(atlas, 0, 0);
     ctx.globalCompositeOperation = 'source-in';

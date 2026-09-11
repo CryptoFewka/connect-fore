@@ -1,5 +1,5 @@
 /**
- * Shared vocabulary for Connect Fore!
+ * Shared vocabulary for Fore!
  *
  * Everything in `src/game/**` is pure: no DOM, no WebGL, no `Math.random`, no
  * `Date.now`. That is what lets the Cloudflare Durable Object run the exact same

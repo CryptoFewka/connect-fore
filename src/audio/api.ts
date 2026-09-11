@@ -25,6 +25,12 @@ export type MusicTrack = 'title' | 'play' | 'victory';
 export interface AudioEngine {
   /** Must be called from a user gesture; resumes the AudioContext. */
   unlock(): Promise<void>;
+  /**
+   * Bring the context back after the OS suspended it - a phone call, an alarm,
+   * the app going to the background. Distinct from `unlock`, which needs a user
+   * gesture; resuming an already-unlocked context does not.
+   */
+  resume(): Promise<void>;
   ready(): boolean;
   sfx(name: SfxName): void;
   /** `null` stops music. */

@@ -48,6 +48,11 @@ export interface InputState {
    *   already did the work, so releasing must do nothing at all.
    */
   setDragMode(mode: DragMode): void;
+  /**
+   * Raise an action from outside the DOM - the Android hardware Back button
+   * arrives through the native shell, not as a key event.
+   */
+  inject(action: InputAction): void;
   /** Call once per frame, after the game has read the state. */
   endFrame(): void;
   dispose(): void;
@@ -256,6 +261,9 @@ export function createInput(target: HTMLElement): InputState {
     },
     pressed(action: InputAction): boolean {
       return edges.has(action);
+    },
+    inject(action: InputAction): void {
+      edges.add(action);
     },
     endFrame(): void {
       edges.clear();

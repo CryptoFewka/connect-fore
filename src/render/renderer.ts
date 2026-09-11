@@ -106,8 +106,15 @@ function assertWebGL(): void {
     probe.getContext('webgl') ??
     probe.getContext('experimental-webgl');
   if (!context) {
-    throw new Error('Connect Fore! needs WebGL, and this browser did not provide a context.');
+    throw new Error('Fore! needs WebGL, and this browser did not provide a context.');
   }
+  // Hand the context straight back. A mobile WebView allows only a handful at
+  // once, and holding this one for the life of the page costs a real slot.
+  const lose = (context as WebGLRenderingContext).getExtension?.('WEBGL_lose_context') as
+    | { loseContext(): void }
+    | null
+    | undefined;
+  lose?.loseContext();
 }
 
 /**
@@ -127,7 +134,7 @@ export function createRenderer(container: HTMLElement): Renderer {
       powerPreference: 'high-performance',
     });
   } catch (cause) {
-    throw new Error(`Connect Fore! could not start WebGL: ${String(cause)}`);
+    throw new Error(`Fore! could not start WebGL: ${String(cause)}`);
   }
 
   renderer.setPixelRatio(1);
@@ -140,7 +147,7 @@ export function createRenderer(container: HTMLElement): Renderer {
   canvas.style.display = 'block';
   canvas.style.imageRendering = 'pixelated';
   canvas.setAttribute('role', 'img');
-  canvas.setAttribute('aria-label', 'Connect Fore! game view');
+  canvas.setAttribute('aria-label', 'Fore! game view');
   container.appendChild(canvas);
 
   // --- scene ---------------------------------------------------------------
@@ -152,15 +159,21 @@ export function createRenderer(container: HTMLElement): Renderer {
   const rig = createCameraRig(NATIVE_W / NATIVE_H);
 
   // --- post pass -----------------------------------------------------------
-  const target = new THREE.WebGLRenderTarget(NATIVE_W, NATIVE_H, {
-    magFilter: THREE.NearestFilter,
-    minFilter: THREE.NearestFilter,
-    format: THREE.RGBAFormat,
-    type: THREE.UnsignedByteType,
-    depthBuffer: true,
-    stencilBuffer: false,
-  });
-  target.texture.generateMipmaps = false;
+  // A factory, because the target dies with the GL context and has to be
+  // rebuilt when one is restored.
+  const makeTarget = (): THREE.WebGLRenderTarget => {
+    const made = new THREE.WebGLRenderTarget(NATIVE_W, NATIVE_H, {
+      magFilter: THREE.NearestFilter,
+      minFilter: THREE.NearestFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.UnsignedByteType,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+    made.texture.generateMipmaps = false;
+    return made;
+  };
+  let target = makeTarget();
 
   const hud = createHud();
   const hudTexture = new THREE.CanvasTexture(hud.canvas);
@@ -227,9 +240,35 @@ export function createRenderer(container: HTMLElement): Renderer {
 
   let lastTime = -1;
   let disposed = false;
+  /**
+   * A backgrounded mobile WebView drops the GL context routinely. Without this
+   * the canvas holds its last frame for ever while the game and the socket run
+   * on underneath, leaving the player in a match they cannot see.
+   */
+  let contextLost = false;
+
+  const onContextLost = (event: Event): void => {
+    // Preventing the default is what makes the context restorable at all.
+    event.preventDefault();
+    contextLost = true;
+  };
+
+  const onContextRestored = (): void => {
+    contextLost = false;
+    // three.js rebuilds its own GPU-side state on the next render; the one
+    // thing it cannot know is our render target, which is gone with the context.
+    target.dispose();
+    target = makeTarget();
+    const mapUniform = postMaterial.uniforms.map;
+    if (mapUniform) mapUniform.value = target.texture;
+    lastTime = -1;
+  };
+
+  canvas.addEventListener('webglcontextlost', onContextLost);
+  canvas.addEventListener('webglcontextrestored', onContextRestored);
 
   const render = (frame: RenderFrame): void => {
-    if (disposed) return;
+    if (disposed || contextLost) return;
     const dt = lastTime < 0 ? 0 : Math.min(0.1, Math.max(0, frame.time - lastTime));
     lastTime = frame.time;
 
@@ -269,6 +308,8 @@ export function createRenderer(container: HTMLElement): Renderer {
     hud.dispose();
 
     postGeometry.dispose();
+    canvas.removeEventListener('webglcontextlost', onContextLost);
+    canvas.removeEventListener('webglcontextrestored', onContextRestored);
     postMaterial.dispose();
     hudTexture.dispose();
     bayer.dispose();

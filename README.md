@@ -1,6 +1,6 @@
-# Connect Fore!
+# Fore!
 
-Connect Four, except you don't drop the piece — you hit a golf ball at the board.
+four in a row, except you don't drop the piece — you hit a golf ball at the board.
 
 Line up your aim, stop the power meter, catch the sweet spot, and thread the ball
 through one of the open cells. Get it through and a piece spawns in that hole and
@@ -106,6 +106,22 @@ native-resolution buffer, dithered, quantised to a 54-colour NES palette and sca
 back up, so the depth is genuine but every pixel is chunky. The HUD is drawn from a
 hand-coded 5×7 bitmap font into the same buffer, so the text lives inside the pixel
 grid rather than floating over it. No image or audio files ship with the game.
+
+## Shipping it as an app
+
+The game runs in a native shell via [Capacitor](https://capacitorjs.com); the build embeds
+directly, since it is one self-contained bundle with no runtime fetches beyond the room socket.
+
+```sh
+VITE_API_ORIGIN=https://fore.automa.agency bun run build
+bunx cap add ios        # macOS only - needs Xcode and CocoaPods
+bunx cap add android
+bunx cap sync
+```
+
+`VITE_API_ORIGIN` is what a bundled build talks to. Web builds leave it unset and keep using the
+page origin, exactly as before. The accounts, identifiers and store paperwork are tracked in
+[docs/PATH-TO-APP-STORES.md](docs/PATH-TO-APP-STORES.md).
 
 ## Deploying
 

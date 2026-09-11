@@ -3,6 +3,11 @@
  * keys; this is everything else.
  */
 
+/**
+ * Note: the `connect-fore:` key namespace predates the rename and stays put.
+ * Renaming it would silently reset every existing player's saved settings for
+ * no visible benefit - the key is never shown to anyone.
+ */
 const KEY = 'connect-fore:settings:v1';
 
 /** Shown until a player picks a handle of their own. */

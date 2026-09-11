@@ -52,6 +52,21 @@ class WebAudioEngine implements AudioEngine {
     this.applyMusic();
   }
 
+  async resume(): Promise<void> {
+    if (this.disposed) return;
+    // Only ever resumes a context that already exists. Creating one here would
+    // be an autoplay-policy violation on the very platforms this is for.
+    const ctx = this.ctx;
+    if (!ctx || ctx.state === 'running') return;
+    try {
+      await ctx.resume();
+    } catch {
+      // Still interrupted; the next gesture or app-resume gets another go.
+      return;
+    }
+    this.applyMusic();
+  }
+
   ready(): boolean {
     return !this.disposed && this.ctx?.state === 'running';
   }
@@ -165,6 +180,10 @@ class WebAudioEngine implements AudioEngine {
 /** Stand-in used when Web Audio is unavailable; still persists preferences. */
 class SilentEngine implements AudioEngine {
   private settings: AudioSettings = loadSettings();
+
+  async resume(): Promise<void> {
+    /* nothing to resume */
+  }
 
   async unlock(): Promise<void> {
     /* nothing to unlock */
