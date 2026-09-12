@@ -706,8 +706,12 @@ function boot(): void {
    * bar, so the `hashchange` above never fires for it.
    */
   function acceptDeepLink(rawUrl: string): void {
-    const hash = rawUrl.slice(rawUrl.indexOf('#'));
-    const code = roomFromHash(hash);
+    // The Android intent filter claims the whole host, because the room code
+    // lives in the fragment and a filter cannot match one - so plain visits
+    // arrive here too, with no '#' at all.
+    const at = rawUrl.indexOf('#');
+    if (at < 0) return;
+    const code = roomFromHash(rawUrl.slice(at));
     if (!code) return;
     const normalized = normalizeRoomCode(code);
     if (!isValidRoomCode(normalized)) return;

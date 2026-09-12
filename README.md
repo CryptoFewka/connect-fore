@@ -113,6 +113,7 @@ grid rather than floating over it. No image or audio files ship with the game.
 |---|---|---|---|
 | **Web** | `bun run build` | whatever origin served the page | **Cloudflare Workers Builds, on every push** |
 | **App** | `bun run build:app` | baked in from `.env.app` | a developer, before `cap sync` |
+| **Android APK** | the *Android APK* workflow | as above | you, from the Actions tab |
 
 The web target is deliberately untouched by the native work: it sets no `VITE_API_ORIGIN`, so the
 game talks to its own origin exactly as it always has, and Cloudflare keeps building and deploying
@@ -128,12 +129,25 @@ cannot connect.
 The game runs in a native shell via [Capacitor](https://capacitorjs.com); the build embeds
 directly, since it is one self-contained bundle with no runtime fetches beyond the room socket.
 
+`android/` is generated and committed; `ios/` is not, because `cap add ios` needs CocoaPods and
+macOS. To rebuild the native side after a code change:
+
 ```sh
-bun run build:app       # reads .env.app
+bun run cap:sync        # build:app, then copy into android/
 bunx cap add ios        # macOS only - needs Xcode and CocoaPods
-bunx cap add android
-bunx cap sync
 ```
+
+### Getting an APK onto a phone
+
+Run the **Android APK** workflow from the Actions tab. It is `workflow_dispatch` only - Gradle adds
+several minutes and it is not a correctness gate - and it uploads `app-debug.apk` directly, not
+zipped, so it can be opened straight from a phone's downloads. Leave the *api_origin* input blank to
+use `.env.app`, or point a build at staging without editing anything.
+
+The APK is **debug signed**, with a keystore the runner makes on the spot. Everything offline works
+- tutorial, driving range, 1P and 2P hot-seat - and so does online play against the deployed Worker.
+Challenge links will not open the app until you switch them on under *Settings → Apps → Fore! →
+Open by default*, because a debug signature cannot match the fingerprint in `assetlinks.json`.
 
 The accounts, identifiers and store paperwork are tracked in
 [docs/PATH-TO-APP-STORES.md](docs/PATH-TO-APP-STORES.md).

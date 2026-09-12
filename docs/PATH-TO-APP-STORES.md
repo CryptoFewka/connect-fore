@@ -19,7 +19,8 @@ Deep-link domain: **`fore.automa.agency`**
 - [ ] Decide the final public name and run it through the free USPTO and EUIPO trademark searches,
       plus a search of both stores for an existing app of that name. "Fore! — Four in a Row Golf"
       is the working name, not a cleared one.
-- [ ] Create `fore.automa.agency` and point it at the Cloudflare Worker.
+- [x] Create `fore.automa.agency` and point it at the Cloudflare Worker. **Done** - it serves the
+      game and `/api/health` answers.
 
 ## 2. Apple
 
@@ -47,25 +48,33 @@ Deep-link domain: **`fore.automa.agency`**
       Signing, not your local upload key — using the upload key is the usual reason app links
       silently fail to verify.
 
-## 4. Generate the native projects
+## 4. Native projects
 
-These cannot be produced in CI on Linux — `cap add ios` needs CocoaPods and macOS — so they are
-generated on the developer machine and committed from there.
+**Android is generated, committed and built by CI.** `android/` is in the repo, and the
+`workflow_dispatch`-only **Android APK** workflow produces a debug-signed `app-debug.apk` you can
+sideload. Rebuild locally with `bun run cap:sync`.
 
-```sh
-bun install
-bun run build:app        # web target is `bun run build`; Cloudflare runs that one
-bunx cap add ios         # macOS only
-bunx cap add android
-bunx cap sync
-```
+**iOS is not**, and cannot be: `cap add ios` needs CocoaPods and macOS. Generate and commit it from
+the Mac when one is available.
 
-- [ ] Generate both projects and commit them.
-- [ ] Set **portrait** orientation in `Info.plist` and `AndroidManifest.xml`.
-- [ ] iOS: disable `allowsBackForwardNavigationGestures` on the WKWebView — the system edge-swipe
+- [x] Android project generated and committed, with the Capacitor 8 pins left alone
+      (Gradle 8.14.3, AGP 8.13.0, minSdk 24, compile/target SDK 36 - which is why CI uses JDK 21).
+- [x] Android: **portrait** locked in `AndroidManifest.xml`.
+- [x] Android: app-link intent filter for `fore.automa.agency`. It claims the bare host rather than
+      a path prefix, because the room code travels in the *fragment*
+      (`https://fore.automa.agency/#/r/ABCDE`) and an Android intent filter cannot match one.
+- [x] Android: CI job producing an APK (`.github/workflows/android.yml`).
+- [ ] **A stable test keystore.** Every CI run generates a fresh debug key, so `autoVerify` can
+      never succeed on a test build and a tester has to enable *Open by default* by hand. Fixing it
+      means putting a keystore in repository secrets and listing its fingerprint as a second entry
+      in `sha256_cert_fingerprints`. Not needed to test gameplay; needed to test *links*.
+- [ ] Release signing and an `.aab` for Play - blocked on §3.
+- [ ] Replace the stock Capacitor launcher icon and splash with real artwork (see §5).
+- [ ] iOS: `bunx cap add ios` on a Mac, then commit.
+- [ ] iOS: portrait in `Info.plist`.
+- [ ] iOS: disable `allowsBackForwardNavigationGestures` on the WKWebView - the system edge-swipe
       collides head-on with the game's own left-flick "back" gesture.
 - [ ] iOS: add the Associated Domains entitlement `applinks:fore.automa.agency`.
-- [ ] Android: add the app-link intent filter for the same host.
 
 ## 5. Store assets
 
@@ -103,9 +112,14 @@ bunx cap sync
 
 - [ ] TestFlight build installed on real hardware.
 - [ ] Play internal-testing build installed on real hardware.
-- [ ] On device, confirm the three things that cannot be proven in CI: a bundled build joining a
-      live room; a challenge link opening the app from Messages; and Back mid-match raising the
-      quit prompt rather than killing the app.
+- [ ] On device, confirm the four things that cannot be proven in CI: the offline modes (tutorial,
+      driving range, 1P, 2P hot-seat) running with sound; a bundled build joining a live room
+      against `https://fore.automa.agency`; a challenge link opening the app; and Back mid-match
+      raising the quit prompt rather than killing the app. The last one is the predictive-back
+      check - `@capacitor/app` goes through `OnBackPressedDispatcher`, which should survive
+      `targetSdk 36`, but only a device proves it.
+      All four can be checked on the debug APK from the Android APK workflow, well before any
+      store account exists.
 - [ ] Submit for review. Apple typically turns round in 24–48 hours; Google takes days to about a
       week on a first submission.
 
@@ -129,6 +143,9 @@ hosted Mac at roughly $50–100/month.
 - **Everything is renamed except the Cloudflare Worker, which keeps the name `connect-fore`.** Renaming it deploys a *new* Worker at a
   new URL, orphaning the old one and breaking both the Cloudflare Builds connection and every
   challenge link already shared. Infrastructure identity is not branding.
+- **The Android SDK and Gradle versions are Capacitor's, not ours.** `variables.gradle` and the
+  wrapper come from the Capacitor 8 template and are what Capacitor tests against. Bumping AGP or
+  the wrapper independently is how a Capacitor project breaks; let a Capacitor upgrade move them.
 - **Apple's "repackaged website" rule (guideline 4.2)** is the main review risk for any WebView
   app. The defence here is unusually strong and should be stated in the review notes: the game
   ships no assets at all — geometry, textures, the bitmap font, every sound and all three music
