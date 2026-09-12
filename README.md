@@ -79,6 +79,11 @@ Online play needs the Worker, so use `bun run dev:worker` for anything involving
 room. There are also two scratch pages under the dev server for working on pieces
 in isolation: `/src/render/dev.html` and `/src/audio/dev.html`.
 
+**TypeScript stays on 5.x on purpose.** `typescript-eslint` declares
+`typescript: ">=4.8.4 <6.1.0"`, so moving to 7 breaks linting outright, not subtly. Revisit when
+typescript-eslint ships a major that supports it. Everything else is kept at the newest version
+that its peers accept.
+
 ## How it fits together
 
 ```

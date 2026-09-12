@@ -134,7 +134,7 @@ export function createRenderer(container: HTMLElement): Renderer {
       powerPreference: 'high-performance',
     });
   } catch (cause) {
-    throw new Error(`Fore! could not start WebGL: ${String(cause)}`);
+    throw new Error(`Fore! could not start WebGL: ${String(cause)}`, { cause });
   }
 
   renderer.setPixelRatio(1);
