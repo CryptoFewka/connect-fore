@@ -25,6 +25,28 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
+    plugins: [
+      // App builds emit a tiny manifest naming the server they were pointed at.
+      //
+      // The alternative - grepping the bundle for the origin - is not stable:
+      // whether the substituted value comes out as "https://..." or
+      // `https://...` is up to whichever minifier the current Vite ships, and
+      // the roomSocketUrl error message mentions the origin in both targets
+      // anyway. This is an explicit statement instead, it travels into the APK
+      // with the rest of dist/client, and it is emitted only for `--mode app`,
+      // so the deployed website is byte-for-byte what it was.
+      mode === 'app' && {
+        name: 'fore:build-target',
+        generateBundle(): void {
+          this.emitFile({
+            type: 'asset',
+            fileName: 'build-target.json',
+            source: `${JSON.stringify({ target: 'app', apiOrigin: env.VITE_API_ORIGIN }, null, 2)}\n`,
+          });
+        },
+      },
+    ],
+
     build: {
       outDir: 'dist/client',
       emptyOutDir: true,

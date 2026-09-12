@@ -75,21 +75,19 @@ jobs:
       # run: a web-target or stale bundle produces an APK that looks fine and
       # silently cannot reach any server.
       #
-      # The test is a fully double-quoted string literal. In an app build Vite
-      # substitutes import.meta.env.VITE_API_ORIGIN with exactly that; the web
-      # build's only mention of an origin is inside the roomSocketUrl error
-      # message, a backtick template, so it does not match.
+      # build-target.json is emitted by vite.config.ts for `--mode app` only,
+      # so its presence is the app target and its contents are the origin.
       - name: Assert an absolute origin is baked in
         run: |
-          origin=$(grep -rhoE '"https://[A-Za-z0-9.-]+"' \
-            android/app/src/main/assets/public/assets/*.js | tr -d '"' | sort -u)
-          if [ -z "$origin" ]; then
-            echo "::error::No API origin baked into the synced bundle - this looks" \
-                 "like a web-target build; vite build --mode app did not run."
+          manifest=android/app/src/main/assets/public/build-target.json
+          if [ ! -f "$manifest" ]; then
+            echo "::error::$manifest is missing - the synced bundle is a" \
+                 "web-target build; vite build --mode app did not run."
             exit 1
           fi
+          cat "$manifest"
+          origin=$(jq -er '.apiOrigin' "$manifest")
           echo "API_ORIGIN=$origin" >> "$GITHUB_ENV"
-          echo "Baked-in origin: $origin"
 
       - name: Show the SDK Gradle will use
         run: |

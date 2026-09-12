@@ -127,7 +127,8 @@ it with no configuration change. `build:web` is an alias for it if you want to b
 The app target cannot do that - inside a native shell the page origin is `capacitor://localhost`,
 which has no server behind it - so `--mode app` reads `.env.app` and bakes in an absolute origin.
 An app build with no origin set fails at build time rather than producing an app that silently
-cannot connect.
+cannot connect, and an app build writes `build-target.json` next to `index.html` naming the origin
+it was given, so any APK can be asked what server it talks to. The web target emits no such file.
 
 ## Shipping it as an app
 
