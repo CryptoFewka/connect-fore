@@ -80,7 +80,7 @@ export function createHud(): HudLayer {
   canvas.width = HUD_W;
   canvas.height = HUD_H;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Connect Fore!: 2D canvas is unavailable.');
+  if (!ctx) throw new Error('Fore!: 2D canvas is unavailable.');
   ctx.imageSmoothingEnabled = false;
   const font: BitmapFont = createFont();
 

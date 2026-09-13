@@ -1,5 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
+  // Infrastructure identity, not branding: renaming this deploys a *new*
+  // Worker at a new URL, orphaning the old one and breaking both the
+  // Cloudflare Builds connection and every challenge link already shared.
   "name": "connect-fore",
   "main": "worker/index.ts",
   "compatibility_date": "2025-09-01",

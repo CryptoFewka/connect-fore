@@ -4,7 +4,7 @@
  * is guarded and failures fall back to the defaults rather than breaking boot.
  */
 
-export const STORAGE_KEY = 'connect-fore:audio';
+export const STORAGE_KEY = 'fore:audio';
 
 export interface AudioSettings {
   muted: boolean;

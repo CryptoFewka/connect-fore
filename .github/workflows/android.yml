@@ -1,0 +1,131 @@
+# Builds a debug-signed APK for sideloading onto a phone.
+#
+# Manual only. Gradle plus the Android SDK adds several minutes, and this is not
+# a correctness gate - ci.yml is. Press "Run workflow" when you want a build to
+# put on a device.
+#
+# The APK is DEBUG signed, with a keystore the runner generates on the spot.
+# That is fine for sideloading and useless for the Play Store, and it is why the
+# https app links do not auto-verify: see the comment in
+# android/app/src/main/AndroidManifest.xml.
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_origin:
+        description: 'Server the APK talks to. Blank uses .env.app (https://fore.automa.agency).'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    name: assembleDebug
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # JDK 21, not the newest: Capacitor 8 pins AGP 8.13 / Gradle 8.14, and 21
+      # is what that combination is built against.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # The app target, which bakes in an absolute origin: a bundled shell sees
+      # location.origin as capacitor://localhost and cannot derive one.
+      #
+      # The input arrives under its own name rather than as VITE_API_ORIGIN,
+      # for two reasons. A blank VITE_API_ORIGIN still shadows .env.app in
+      # loadEnv and would trip the app-mode guard in vite.config.ts, so the
+      # variable must be absent rather than empty; and going through `env:`
+      # keeps a dispatch input out of the interpolated script text.
+      - name: Build the web bundle (app target)
+        env:
+          INPUT_ORIGIN: ${{ inputs.api_origin }}
+        run: |
+          if [ -n "$INPUT_ORIGIN" ]; then
+            VITE_API_ORIGIN="$INPUT_ORIGIN" bun run build:app
+          else
+            bun run build:app
+          fi
+
+      - name: Copy into the native project
+        run: bunx cap sync android
+
+      # Cheap, and it fails in seconds rather than after a five-minute Gradle
+      # run: a web-target or stale bundle produces an APK that looks fine and
+      # silently cannot reach any server.
+      #
+      # build-target.json is emitted by vite.config.ts for `--mode app` only,
+      # so its presence is the app target and its contents are the origin.
+      - name: Assert an absolute origin is baked in
+        run: |
+          manifest=android/app/src/main/assets/public/build-target.json
+          if [ ! -f "$manifest" ]; then
+            echo "::error::$manifest is missing - the synced bundle is a" \
+                 "web-target build; vite build --mode app did not run."
+            exit 1
+          fi
+          cat "$manifest"
+          origin=$(jq -er '.apiOrigin' "$manifest")
+          echo "API_ORIGIN=$origin" >> "$GITHUB_ENV"
+
+      - name: Show the SDK Gradle will use
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          ls "${ANDROID_HOME}/platforms" 2>/dev/null || echo "no platforms dir"
+          ls "${ANDROID_HOME}/build-tools" 2>/dev/null || echo "no build-tools dir"
+
+      - name: assembleDebug
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # archive: false uploads the .apk itself instead of a zip, so it can be
+      # opened straight from a phone's downloads.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: app-debug.apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          archive: false
+          retention-days: 14
+
+      - name: Summary
+        run: |
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          {
+            echo "### Fore! debug APK"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Origin | \`${API_ORIGIN}\` |"
+            echo "| Size | $(du -h "$apk" | cut -f1) |"
+            echo "| Signing | debug (runner-generated keystore) |"
+            echo
+            echo "Download **app-debug.apk** from the Artifacts section above, then"
+            echo "\`adb install -r app-debug.apk\`, or open it on the phone and allow"
+            echo "installs from this source."
+            echo
+            echo "Challenge links will not open the app until you switch them on under"
+            echo "**Settings → Apps → Fore! → Open by default**: a debug signature cannot"
+            echo "match the assetlinks fingerprint."
+          } >> "$GITHUB_STEP_SUMMARY"

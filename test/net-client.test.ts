@@ -71,7 +71,7 @@ class FakeSocket implements SocketLike {
 
 function memoryStore(seed?: string): KeyValueStore {
   const map = new Map<string, string>();
-  if (seed) map.set('connect-fore:client-id', seed);
+  if (seed) map.set('fore:client-id', seed);
   return {
     getItem: (key) => map.get(key) ?? null,
     setItem: (key, value) => void map.set(key, value),
@@ -129,8 +129,8 @@ const PARAMS: ShotParams = { yaw: 0.1, loft: 0.4, power: 0.7, accuracy: -0.2 };
 
 describe('urls and identity', () => {
   test('derives a socket url from the page origin', () => {
-    expect(roomSocketUrl(CODE, 'https://connect-fore.example')).toBe(
-      `wss://connect-fore.example/api/room/${CODE}`,
+    expect(roomSocketUrl(CODE, 'https://fore.example')).toBe(
+      `wss://fore.example/api/room/${CODE}`,
     );
     expect(roomSocketUrl(CODE, 'http://127.0.0.1:8787')).toBe(
       `ws://127.0.0.1:8787/api/room/${CODE}`,

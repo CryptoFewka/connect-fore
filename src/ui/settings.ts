@@ -3,7 +3,7 @@
  * keys; this is everything else.
  */
 
-const KEY = 'connect-fore:settings:v1';
+const KEY = 'fore:settings:v1';
 
 /** Shown until a player picks a handle of their own. */
 export const DEFAULT_NAME = 'PLAYER';

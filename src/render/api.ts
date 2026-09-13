@@ -45,7 +45,7 @@ export interface HudPlayerView {
 
 export interface HudState {
   visible: boolean;
-  /** Large centred banner, e.g. `CONNECT FORE!`. */
+  /** Large centred banner, e.g. `FORE!`. */
   title: string | null;
   subtitle: string | null;
   /** Transient call-out, e.g. `THROUGH THE GAP!`. */

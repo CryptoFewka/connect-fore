@@ -1,5 +1,5 @@
 /**
- * Connect Fore! — boot and app state machine.
+ * Fore! — boot and app state machine.
  *
  * Owns the render loop, moves between the title screen, the menus, the online
  * lobby and a live match, and keeps the renderer, the audio engine and the
@@ -32,6 +32,8 @@ import {
 } from './net/protocol';
 import type { PlayerInfo } from './net/protocol';
 import { connectRoom } from './net/client';
+import { apiOrigin, shareOrigin } from './net/api-origin';
+import { createNativeBridge } from './ui/native';
 import type { ConnectionStatus, RoomConnection } from './net/client';
 
 type Screen =
@@ -62,6 +64,7 @@ function boot(): void {
   const audio: AudioEngine = createAudio();
   const input: InputState = createInput(renderer.canvas);
   const settings: Settings = loadSettings();
+  const nativeBridge = createNativeBridge();
 
   const mainMenu = createMenu([
     // The lesson first: the shot takes some learning.
@@ -109,6 +112,12 @@ function boot(): void {
    * of their own - touch aiming, the music resume and the deep-link guard are
    * all keyed on that, and a new screen value would quietly lose them.
    */
+  /**
+   * A room code from a link the app was launched by. The title screen waits for
+   * a press before doing anything, so a cold-start deep link has to be parked
+   * here until that happens or it is simply lost.
+   */
+  let pendingRoom: string | null = null;
   let practising = false;
   let tutorial: Tutorial | null = null;
   /** Which control scheme the instructions screen is showing. */
@@ -134,6 +143,7 @@ function boot(): void {
     };
     session = createSession({
       audio,
+      haptic: nativeBridge.haptic,
       seats,
       ai: mode === 'solo' ? { seat: 2, difficulty: settings.difficulty } : undefined,
       seed: (Date.now() ^ 0x9e3779b9) >>> 0,
@@ -154,7 +164,12 @@ function boot(): void {
       local: [1, 2],
       connected: [true, true],
     };
-    session = createSession({ audio, seats, practice: { shooter: 1, rival: 2 } });
+    session = createSession({
+      audio,
+      haptic: nativeBridge.haptic,
+      seats,
+      practice: { shooter: 1, rival: 2 },
+    });
     session.reset();
     practising = true;
     tutorial = withTutorial ? createTutorial() : null;
@@ -187,8 +202,26 @@ function boot(): void {
     screen = 'lobby';
     connectionStatus = 'connecting';
 
-    connection = connectRoom(code, {
+    try {
+      connection = openConnection(code);
+    } catch (err) {
+      // A misconfigured build should say so, not retry an impossible URL forever.
+      connectionStatus = 'closed';
+      say(err instanceof Error ? err.message.slice(0, 30).toUpperCase() : 'CANNOT REACH SERVER', 5);
+      screen = 'main';
+    }
+  }
+
+  function openConnection(code: string): RoomConnection {
+    return connectRoom(code, {
       name: settings.name,
+      // Unset on the web, where the page origin is right. A bundled app is
+      // given the real one at build time.
+      origin: apiOrigin(),
+      // An app has one "tab" and wipes session storage on every cold launch, so
+      // the seat identity has to outlive the process there. On the web it must
+      // stay per-tab, or two tabs would fight over one seat.
+      storage: nativeBridge.isNative && typeof localStorage !== 'undefined' ? localStorage : undefined,
       onStatus: (status) => {
         connectionStatus = status;
         if (status === 'reconnecting') say('RECONNECTING...', 3);
@@ -198,6 +231,7 @@ function boot(): void {
         lobbyPlayers = msg.players;
         session = createSession({
           audio,
+          haptic: nativeBridge.haptic,
           seats: seatsFrom(msg.players, msg.seat),
           score: msg.score,
           hooks: {
@@ -257,13 +291,12 @@ function boot(): void {
 
   async function copyChallengeLink(): Promise<void> {
     if (!roomCode) return;
-    const url = challengeUrl(location.origin, roomCode);
-    try {
-      await navigator.clipboard.writeText(url);
-      say('LINK COPIED!');
-    } catch {
-      say('COPY FAILED - USE THE CODE');
-    }
+    // Never location.origin here: inside the app that is capacitor://localhost,
+    // which would mint a link nobody else can open.
+    const url = challengeUrl(shareOrigin(), roomCode);
+    const shared = await nativeBridge.shareLink(url, 'Play me at Fore!');
+    if (shared) say(nativeBridge.isNative ? 'CHALLENGE SENT!' : 'LINK COPIED!');
+    else say('COPY FAILED - USE THE CODE');
   }
 
   // -- per-screen update ----------------------------------------------------
@@ -273,7 +306,8 @@ function boot(): void {
       void audio.unlock();
       audio.music('title');
       select();
-      const deepLink = roomFromHash(location.hash);
+      const deepLink = pendingRoom ?? roomFromHash(location.hash);
+      pendingRoom = null;
       if (deepLink) {
         const code = normalizeRoomCode(deepLink);
         if (isValidRoomCode(code)) {
@@ -461,14 +495,14 @@ function boot(): void {
     switch (screen) {
       case 'title':
         return menuFrame(time, {
-          title: 'CONNECT FORE!',
-          subtitle: 'GOLF MEETS CONNECT FOUR',
+          title: 'FORE!',
+          subtitle: 'FOUR IN A ROW GOLF',
           hint: 'PRESS FIRE TO START',
         });
 
       case 'main':
         return menuFrame(time, {
-          title: 'CONNECT FORE!',
+          title: 'FORE!',
           menu: { items: mainMenu.labels, index: mainMenu.index },
           hint: 'ARROWS MOVE   FIRE SELECTS',
         });
@@ -650,6 +684,8 @@ function boot(): void {
       audio.music(null);
     } else {
       last = performance.now();
+      // Coming back from a background tab leaves the context suspended.
+      void audio.resume();
       if (screen === 'playing') audio.music('play');
       else if (started) audio.music('title');
     }
@@ -663,6 +699,50 @@ function boot(): void {
   });
 
   window.addEventListener('pagehide', () => connection?.close());
+
+  /**
+   * Native deep links. A universal link (iOS) or app link (Android) is handed
+   * to the page as a whole URL through the shell - it never touches the address
+   * bar, so the `hashchange` above never fires for it.
+   */
+  function acceptDeepLink(rawUrl: string): void {
+    // The Android intent filter claims the whole host, because the room code
+    // lives in the fragment and a filter cannot match one - so plain visits
+    // arrive here too, with no '#' at all.
+    const at = rawUrl.indexOf('#');
+    if (at < 0) return;
+    const code = roomFromHash(rawUrl.slice(at));
+    if (!code) return;
+    const normalized = normalizeRoomCode(code);
+    if (!isValidRoomCode(normalized)) return;
+    if (started && screen !== 'playing') openRoom(normalized);
+    else pendingRoom = normalized;
+  }
+
+  void nativeBridge.onDeepLink(acceptDeepLink);
+
+  /**
+   * Android's Back button. Left unhandled its default is to quit the app
+   * outright, which would close the socket in the middle of a live match; this
+   * routes it into the same confirmation prompt the touch gestures use.
+   */
+  void nativeBridge.onBackButton(() => input.inject('cancel'));
+
+  /**
+   * A WebView does not reliably fire `visibilitychange` when the app itself is
+   * backgrounded, and the audio context comes back suspended either way.
+   */
+  void nativeBridge.onAppStateChange((active) => {
+    paused = !active;
+    if (active) {
+      last = performance.now();
+      void audio.resume();
+      if (screen === 'playing') audio.music('play');
+      else if (started) audio.music('title');
+    } else {
+      audio.music(null);
+    }
+  });
 
   requestAnimationFrame(loop);
 }
@@ -681,8 +761,8 @@ function showFatal(app: HTMLElement, err: unknown): void {
   box.id = 'fallback';
   box.textContent =
     err instanceof Error && err.message
-      ? `Connect Fore! could not start: ${err.message}`
-      : 'Connect Fore! needs WebGL to run.';
+      ? `Fore! could not start: ${err.message}`
+      : 'Fore! needs WebGL to run.';
   app.appendChild(box);
 }
 

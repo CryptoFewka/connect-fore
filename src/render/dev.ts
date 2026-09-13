@@ -155,8 +155,8 @@ function tick(now: number): void {
     : null;
 
   const hud = frame.hud;
-  hud.title = state.shot === 'title' ? 'CONNECT FORE!' : null;
-  hud.subtitle = state.shot === 'title' ? 'GOLF MEETS CONNECT FOUR' : null;
+  hud.title = state.shot === 'title' ? 'FORE!' : null;
+  hud.subtitle = state.shot === 'title' ? 'GOLF MEETS FOUR IN A ROW' : null;
   hud.message = state.message ? 'THROUGH THE GAP!' : null;
   hud.menu = state.menu
     ? { items: ['1 PLAYER', '2 PLAYERS', 'ONLINE MATCH', 'OPTIONS'], index: Math.floor(time) % 4 }

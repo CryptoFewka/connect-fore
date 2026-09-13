@@ -1,5 +1,5 @@
 /**
- * The Connect Four board as a real object in the world.
+ * The four in a row board as a real object in the world.
  *
  * The frame is one extruded shape with 42 circular holes punched through it,
  * so an empty cell is genuinely open: you can see the sky through it and watch

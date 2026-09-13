@@ -2,7 +2,10 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist/**', '.wrangler/**', 'node_modules/**'] },
+  // android/ and ios/ hold generated native projects, and `cap sync` copies the
+  // built bundle into android/app/src/main/assets/public. Flat config does not
+  // read .gitignore, so without this `bun run lint` lints the build output.
+  { ignores: ['dist/**', '.wrangler/**', 'node_modules/**', 'android/**', 'ios/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

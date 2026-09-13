@@ -1,6 +1,6 @@
-# Connect Fore!
+# Fore!
 
-Connect Four, except you don't drop the piece — you hit a golf ball at the board.
+four in a row, except you don't drop the piece — you hit a golf ball at the board.
 
 Line up your aim, stop the power meter, catch the sweet spot, and thread the ball
 through one of the open cells. Get it through and a piece spawns in that hole and
@@ -79,6 +79,11 @@ Online play needs the Worker, so use `bun run dev:worker` for anything involving
 room. There are also two scratch pages under the dev server for working on pieces
 in isolation: `/src/render/dev.html` and `/src/audio/dev.html`.
 
+**TypeScript stays on 5.x on purpose.** `typescript-eslint` declares
+`typescript: ">=4.8.4 <6.1.0"`, so moving to 7 breaks linting outright, not subtly. Revisit when
+typescript-eslint ships a major that supports it. Everything else is kept at the newest version
+that its peers accept.
+
 ## How it fits together
 
 ```
@@ -106,6 +111,52 @@ native-resolution buffer, dithered, quantised to a 54-colour NES palette and sca
 back up, so the depth is genuine but every pixel is chunky. The HUD is drawn from a
 hand-coded 5×7 bitmap font into the same buffer, so the text lives inside the pixel
 grid rather than floating over it. No image or audio files ship with the game.
+
+## Build targets
+
+| Target | Command | Server origin | Who runs it |
+|---|---|---|---|
+| **Web** | `bun run build` | whatever origin served the page | **Cloudflare Workers Builds, on every push** |
+| **App** | `bun run build:app` | baked in from `.env.app` | a developer, before `cap sync` |
+| **Android APK** | the *Android APK* workflow | as above | you, from the Actions tab |
+
+The web target is deliberately untouched by the native work: it sets no `VITE_API_ORIGIN`, so the
+game talks to its own origin exactly as it always has, and Cloudflare keeps building and deploying
+it with no configuration change. `build:web` is an alias for it if you want to be explicit.
+
+The app target cannot do that - inside a native shell the page origin is `capacitor://localhost`,
+which has no server behind it - so `--mode app` reads `.env.app` and bakes in an absolute origin.
+An app build with no origin set fails at build time rather than producing an app that silently
+cannot connect, and an app build writes `build-target.json` next to `index.html` naming the origin
+it was given, so any APK can be asked what server it talks to. The web target emits no such file.
+
+## Shipping it as an app
+
+The game runs in a native shell via [Capacitor](https://capacitorjs.com); the build embeds
+directly, since it is one self-contained bundle with no runtime fetches beyond the room socket.
+
+`android/` is generated and committed; `ios/` is not, because `cap add ios` needs CocoaPods and
+macOS. To rebuild the native side after a code change:
+
+```sh
+bun run cap:sync        # build:app, then copy into android/
+bunx cap add ios        # macOS only - needs Xcode and CocoaPods
+```
+
+### Getting an APK onto a phone
+
+Run the **Android APK** workflow from the Actions tab. It is `workflow_dispatch` only - Gradle adds
+several minutes and it is not a correctness gate - and it uploads `app-debug.apk` directly, not
+zipped, so it can be opened straight from a phone's downloads. Leave the *api_origin* input blank to
+use `.env.app`, or point a build at staging without editing anything.
+
+The APK is **debug signed**, with a keystore the runner makes on the spot. Everything offline works
+- tutorial, driving range, 1P and 2P hot-seat - and so does online play against the deployed Worker.
+Challenge links will not open the app until you switch them on under *Settings → Apps → Fore! →
+Open by default*, because a debug signature cannot match the fingerprint in `assetlinks.json`.
+
+The accounts, identifiers and store paperwork are tracked in
+[docs/PATH-TO-APP-STORES.md](docs/PATH-TO-APP-STORES.md).
 
 ## Deploying
 

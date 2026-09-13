@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                Challenge links.
+
+                No android:pathPrefix, because the room code travels in the
+                FRAGMENT - `https://fore.automa.agency/#/r/ABCDE`, see
+                buildChallengeUrl in src/net/protocol.ts - and an Android intent
+                filter cannot match a fragment. Claiming the bare host is the
+                only thing that works, and costs nothing: this domain serves the
+                game and nothing else. (iOS is different; its
+                apple-app-site-association in worker/deep-links.ts does match on
+                the fragment.)
+
+                `autoVerify` makes Android fetch
+                https://fore.automa.agency/.well-known/assetlinks.json and check
+                the signing certificate against it, so verification FAILS on a
+                debug build, whose keystore is generated fresh on whatever
+                machine built it. A tester has to switch the links on by hand
+                under Settings -> Apps -> Fore! -> Open by default. It starts
+                working on its own once the real Play App Signing fingerprint
+                replaces the placeholder ANDROID_SHA.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="fore.automa.agency" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

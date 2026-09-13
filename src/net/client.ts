@@ -138,7 +138,7 @@ export interface RoomConnection {
   close(): void;
 }
 
-const CLIENT_ID_KEY = 'connect-fore:client-id';
+const CLIENT_ID_KEY = 'fore:client-id';
 const DEFAULTS = {
   heartbeatMs: 20_000,
   pongTimeoutMs: 10_000,
@@ -172,9 +172,13 @@ function randomId(): string {
 }
 
 /**
- * The seat-claiming identity for this tab. Kept in `sessionStorage` on purpose:
- * per-tab, so two tabs on one machine can play each other, but stable across a
- * refresh so a reload drops back into the same seat mid-match.
+ * The seat-claiming identity for this tab. `sessionStorage` on purpose: per-tab,
+ * so two tabs on one machine can play each other, but stable across a refresh so
+ * a reload drops back into the same seat mid-match.
+ *
+ * A native shell wants the opposite and passes `localStorage` in via the
+ * `storage` option - there is only ever one "tab", and session storage there is
+ * wiped on every cold launch, which would lose the seat on every app restart.
  */
 export function resolveClientId(store: KeyValueStore | null = defaultStore()): string {
   if (!store) return randomId();
@@ -189,13 +193,29 @@ export function resolveClientId(store: KeyValueStore | null = defaultStore()): s
   }
 }
 
-/** `wss://host/api/room/CODE` for a room, derived from the page origin. */
+/**
+ * `wss://host/api/room/CODE` for a room.
+ *
+ * Throws rather than returning a URL that cannot be opened. The URL spec
+ * forbids switching a *non-special* scheme to a special one, so assigning
+ * `protocol = 'wss:'` to a `capacitor://localhost` base is a silent no-op - the
+ * caller would get `capacitor://...` back, `new WebSocket()` would throw, and
+ * the retry loop would hide it as an endless "RECONNECTING". Better to fail
+ * where the mistake actually is.
+ */
 export function roomSocketUrl(code: string, origin?: string): string {
   const base =
     origin ??
     (typeof location === 'undefined' ? 'http://127.0.0.1:8787' : location.origin);
   const url = new URL(roomPath(code), base);
-  url.protocol = url.protocol === 'https:' || url.protocol === 'wss:' ? 'wss:' : 'ws:';
+  const wanted = url.protocol === 'https:' || url.protocol === 'wss:' ? 'wss:' : 'ws:';
+  url.protocol = wanted;
+  if (url.protocol !== wanted) {
+    throw new Error(
+      `Cannot open a room socket against "${base}". A bundled build must be given a real ` +
+        `origin: set VITE_API_ORIGIN to the deployed Worker, e.g. https://fore.automa.agency`,
+    );
+  }
   return url.toString();
 }
 
